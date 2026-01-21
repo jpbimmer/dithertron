@@ -67,6 +67,195 @@
         #examplesMenu {
             font-size: 0.8em;
         }
+
+        /* Error function buttons */
+        .error-func-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .error-func-btn {
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            background: #495057;
+            border: 1px solid #6c757d;
+            color: #fff;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .error-func-btn:hover {
+            background: #5a6268;
+        }
+        .error-func-btn.active {
+            background: #007bff;
+            border-color: #0056b3;
+        }
+
+        /* Dither algorithm grid */
+        .dither-btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .dither-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            background: #495057;
+            border: 1px solid #6c757d;
+            color: #fff;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .dither-btn:hover {
+            background: #5a6268;
+        }
+        .dither-btn.active {
+            background: #007bff;
+            border-color: #0056b3;
+        }
+
+        /* System selector sidebar */
+        .system-sidebar {
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 320px;
+            height: 100vh;
+            background: #343a40;
+            transition: right 0.3s ease;
+            z-index: 1050;
+            overflow-y: auto;
+            padding: 1rem;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.3);
+        }
+        .system-sidebar.open {
+            right: 0;
+        }
+        .system-sidebar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1040;
+            display: none;
+        }
+        .system-sidebar-backdrop.open {
+            display: block;
+        }
+        .system-sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+        .system-sidebar-close {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }
+        .system-sidebar-close:hover {
+            color: #adb5bd;
+        }
+        #systemSearch {
+            width: 100%;
+            background: #495057;
+            border: 1px solid #6c757d;
+            color: #fff;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        #systemSearch::placeholder {
+            color: #adb5bd;
+        }
+        .system-category-accordion .card {
+            background: #3a3f44;
+            border: 1px solid #6c757d;
+            margin-bottom: 0.25rem;
+        }
+        .system-category-accordion .card-header {
+            background: #495057;
+            cursor: pointer;
+            padding: 0.5rem 0.75rem;
+            border-bottom: none;
+        }
+        .system-category-accordion .card-header:hover {
+            background: #5a6268;
+        }
+        .system-category-accordion .card-header h6 {
+            color: #fff;
+            margin: 0;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .system-category-accordion .card-header .badge {
+            font-size: 0.7rem;
+        }
+        .system-category-accordion .card-body {
+            padding: 0.5rem;
+            background: #3a3f44;
+        }
+        .system-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.4rem 0.5rem;
+            font-size: 0.8rem;
+            background: #495057;
+            border: 1px solid #6c757d;
+            color: #fff;
+            margin-bottom: 0.25rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+        }
+        .system-btn:hover {
+            background: #5a6268;
+        }
+        .system-btn.active {
+            background: #007bff;
+            border-color: #0056b3;
+        }
+        .system-btn.d-none {
+            display: none !important;
+        }
+        #systemSelectorToggle {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 767px) {
+            .responsive-row {
+                height: auto;
+                min-height: 40vh;
+            }
+            .dither-btn-group {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        @media (max-width: 400px) {
+            .error-func-group {
+                flex-direction: column;
+            }
+            .error-func-btn {
+                width: 100%;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <!-- body -->
@@ -139,7 +328,9 @@
             <div class="col-md-6">
                 <div class="alert alert-info">
                     Convert to:
-                    <select id="targetFormatSelect" title="Select the target format"></select>
+                    <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
+                        <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
+                    </button>
                     <br>
                     <small><span id="targetFormatInfo"></span></small>
                     <br>
@@ -188,8 +379,12 @@
                             <input type="range" id="saturationSlider" data-provide="slider" data-slider-min="0"
                                 data-slider-max="100" data-slider-value="50" />
                         </div>
-                        <div class="col-lg-5 col-xl-4">
-                            <small><select id="errorFuncSelect"></select></small>
+                    </div>
+                    <div class="row mt-2" id="errorFuncSection">
+                        <div class="col-12">
+                            <div class="error-func-group" id="errorFuncGroup" role="group">
+                                <!-- Error function buttons populated by JS -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -203,17 +398,7 @@
                                 data-slider-max="100" data-slider-value="60" />
                         </div>
                     </div>
-                    <div class="row align-items-center" id="diffuseSection">
-                        <label for="diffuseSlider" class="col-sm-3 col-form-label">Diffusion:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="75" />
-                        </div>
-                        <div class="col-lg-5 col-xl-4">
-                            <small><select id="diffuseTypeSelect"></select></small>
-                        </div>
-                    </div>
-                    <div class="row align-items-center" id="diffuseSection">
+                    <div class="row align-items-center" id="orderedSection">
                         <label for="orderedSlider" class="col-sm-3 col-form-label">Ordered:</label>
                         <div class="col-sm-5 col-md-5">
                             <input type="range" id="orderedSlider" data-provide="slider" data-slider-min="0"
@@ -225,6 +410,20 @@
                         <div class="col-sm-5 col-md-5">
                             <input type="range" id="noiseSlider" data-provide="slider" data-slider-min="0"
                                 data-slider-max="10" data-slider-value="5" />
+                        </div>
+                    </div>
+                    <div class="row align-items-center" id="diffuseSection">
+                        <label for="diffuseSlider" class="col-sm-3 col-form-label">Diffusion:</label>
+                        <div class="col-sm-5 col-md-5">
+                            <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
+                                data-slider-max="100" data-slider-value="75" />
+                        </div>
+                    </div>
+                    <div class="row mt-2" id="ditherButtonSection">
+                        <div class="col-12">
+                            <div class="dither-btn-group" id="ditherButtonGroup" role="group">
+                                <!-- Dither buttons populated by JS -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -241,6 +440,20 @@
             }
         </script>
     </div>
+
+    <!-- System selector sidebar -->
+    <div class="system-sidebar-backdrop" id="systemSidebarBackdrop"></div>
+    <div class="system-sidebar" id="systemSidebar">
+        <div class="system-sidebar-header">
+            <h5>Select System</h5>
+            <button class="system-sidebar-close" id="systemSidebarClose">&times;</button>
+        </div>
+        <input type="text" id="systemSearch" placeholder="Search systems...">
+        <div class="system-category-accordion" id="systemAccordion">
+            <!-- System categories populated by JS -->
+        </div>
+    </div>
+
     <!-- local scripts-->
     <script src="gen/ui.js" type="module"></script>
 

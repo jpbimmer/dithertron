@@ -89,6 +89,156 @@ const ERROR_FUNCS = [
     { id: 'max', name: "Maximum" },
 ];
 
+// System categories for sidebar organization
+const SYSTEM_CATEGORIES: { [key: string]: string[] } = {
+    'Commodore': ['c64', 'vic20'],
+    'Nintendo': ['nes', 'snes', 'gb', 'gbc', 'virtualboy'],
+    'Atari': ['atari8', 'vcs', 'atari7800', 'atarist', 'astrocade'],
+    'Apple': ['apple2', 'appleiigs', 'mac'],
+    'Sega': ['sms', 'genesis', 'gg'],
+    'ZX/UK': ['zx', 'bbc', 'cpc', 'teletext'],
+    'PC': ['x86'],
+    'Other': [] // Catch-all for everything else
+};
+
+function getCategoryFromSystemId(id: string): string {
+    const idPrefix = id.split('.')[0].toLowerCase();
+    for (const [category, prefixes] of Object.entries(SYSTEM_CATEGORIES)) {
+        if (category === 'Other') continue;
+        if (prefixes.some(prefix => idPrefix.startsWith(prefix) || idPrefix === prefix)) {
+            return category;
+        }
+    }
+    return 'Other';
+}
+
+function populateErrorFuncButtons() {
+    const container = $('#errorFuncGroup');
+    container.empty();
+    ERROR_FUNCS.forEach((func, index) => {
+        const btn = $('<button type="button" class="error-func-btn"></button>')
+            .text(func.name)
+            .attr('data-error-func', func.id);
+        if (index === 0) btn.addClass('active');
+        container.append(btn);
+    });
+}
+
+function populateDitherButtons() {
+    const container = $('#ditherButtonGroup');
+    container.empty();
+    ALL_DITHER_SETTINGS.forEach((dset, index) => {
+        const btn = $('<button type="button" class="dither-btn"></button>')
+            .text(dset.name)
+            .attr('data-dither-index', index);
+        if (index === 0) btn.addClass('active');
+        container.append(btn);
+    });
+}
+
+function populateSystemSidebar() {
+    const accordion = $('#systemAccordion');
+    accordion.empty();
+
+    // Group systems by category
+    const categorizedSystems: { [key: string]: DithertronSettings[] } = {};
+    const categoryOrder = ['Commodore', 'Nintendo', 'Atari', 'Apple', 'Sega', 'ZX/UK', 'PC', 'Other'];
+
+    categoryOrder.forEach(cat => categorizedSystems[cat] = []);
+
+    SYSTEMS.forEach(sys => {
+        if (sys) {
+            const category = getCategoryFromSystemId(sys.id);
+            categorizedSystems[category].push(sys);
+        }
+    });
+
+    // Create accordion cards for each category
+    categoryOrder.forEach((category, catIndex) => {
+        const systems = categorizedSystems[category];
+        if (systems.length === 0) return;
+
+        const cardId = `systemCategory${catIndex}`;
+        const collapseId = `collapse${catIndex}`;
+
+        const card = $(`
+            <div class="card">
+                <div class="card-header" id="${cardId}" data-toggle="collapse" data-target="#${collapseId}">
+                    <h6>
+                        ${category}
+                        <span class="badge badge-secondary">${systems.length}</span>
+                    </h6>
+                </div>
+                <div id="${collapseId}" class="collapse" data-parent="#systemAccordion">
+                    <div class="card-body"></div>
+                </div>
+            </div>
+        `);
+
+        const cardBody = card.find('.card-body');
+        systems.forEach(sys => {
+            const btn = $('<button type="button" class="system-btn"></button>')
+                .text(sys.name)
+                .attr('data-system-id', sys.id);
+            cardBody.append(btn);
+        });
+
+        accordion.append(card);
+    });
+}
+
+function toggleSystemSidebar(open: boolean) {
+    if (open) {
+        $('#systemSidebar').addClass('open');
+        $('#systemSidebarBackdrop').addClass('open');
+        document.body.style.overflow = 'hidden';
+    } else {
+        $('#systemSidebar').removeClass('open');
+        $('#systemSidebarBackdrop').removeClass('open');
+        document.body.style.overflow = '';
+    }
+}
+
+function filterSystems(searchTerm: string) {
+    const term = searchTerm.toLowerCase().trim();
+    const sidebar = $('#systemSidebar');
+
+    if (!term) {
+        // Show all systems and collapse accordions
+        sidebar.find('.system-btn').removeClass('d-none');
+        sidebar.find('.collapse').removeClass('show');
+        return;
+    }
+
+    // Filter systems and show matching ones
+    sidebar.find('.system-btn').each(function() {
+        const btn = $(this);
+        const name = btn.text().toLowerCase();
+        const id = (btn.attr('data-system-id') || '').toLowerCase();
+        const matches = name.includes(term) || id.includes(term);
+        btn.toggleClass('d-none', !matches);
+    });
+
+    // Expand categories that have visible systems
+    sidebar.find('.card').each(function() {
+        const card = $(this);
+        const hasVisibleSystems = card.find('.system-btn:not(.d-none)').length > 0;
+        const collapse = card.find('.collapse');
+        if (hasVisibleSystems) {
+            collapse.addClass('show');
+        } else {
+            collapse.removeClass('show');
+        }
+    });
+}
+
+function updateCurrentSystemDisplay(sys: DithertronSettings) {
+    $('#currentSystemName').text(sys.name);
+    // Update active state in sidebar
+    $('.system-btn').removeClass('active');
+    $(`.system-btn[data-system-id="${sys.id}"]`).addClass('active');
+}
+
 //
 
 var fingerprintErrorShown = false;
@@ -181,14 +331,16 @@ function reprocessImage() {
 }
 
 function resetImage() {
-    var opt = ($("#diffuseTypeSelect")[0] as HTMLSelectElement).selectedOptions[0];
-    // TODO: what if settings not yet set?
-    if (opt) {
-        dithertron.settings.ditherfn = ALL_DITHER_SETTINGS[parseInt(opt.value)].kernel;
+    // Read dither selection from active button
+    const activeDitherBtn = $('.dither-btn.active');
+    if (activeDitherBtn.length > 0) {
+        const ditherIndex = parseInt(activeDitherBtn.attr('data-dither-index') || '0');
+        dithertron.settings.ditherfn = ALL_DITHER_SETTINGS[ditherIndex].kernel;
     }
-    var opt = ($("#errorFuncSelect")[0] as HTMLSelectElement).selectedOptions[0];
-    if (opt) {
-        dithertron.settings.errfn = opt.value;
+    // Read error function from active button
+    const activeErrorBtn = $('.error-func-btn.active');
+    if (activeErrorBtn.length > 0) {
+        dithertron.settings.errfn = activeErrorBtn.attr('data-error-func') || 'perceptual';
     }
     dithertron.settings.diffuse = parseFloat(diffuseSlider.value) / 100;
     dithertron.settings.ordered = parseFloat(orderedSlider.value) / 100;
@@ -298,7 +450,7 @@ function setTargetSystem(sys: DithertronSettings) {
         loadSourceImage((cropper as any).url); // TODO?
     }
     updateURL();
-    repopulateSystemSelector(sys);
+    updateCurrentSystemDisplay(sys);
 }
 
 function getFilenamePrefix() {
@@ -397,35 +549,6 @@ function decodeQueryString(qs: string) {
     return b;
 }
 
-function repopulateSystemSelector(currentSystem: DithertronSettings) {
-    const sel = $("#targetFormatSelect");
-    sel.empty();
-    let [currentParentName, currentSubtypeName] = currentSystem.name.split(' (');
-    let allParents = new Set<String>();
-    let optgroup = null;
-    SYSTEMS.forEach(sys => {
-        if (sys == null) {
-            sel.append($("<option disabled></option>"));
-        } else {
-            // does it have a subtype?
-            let [parentName, subtypeName] = sys.name.split(' (');
-            let opt = $("<option />").text(sys.name).val(sys.id);
-            if (parentName == currentParentName) {
-                if (!optgroup) {
-                    optgroup = $("<optgroup />").attr("label", currentParentName);
-                    sel.append(optgroup);
-                }
-                optgroup.append(opt);
-            } else if (!allParents.has(parentName)) {
-                let opt = $("<option />").text(parentName).val(sys.id);
-                sel.append(opt);
-            }
-            allParents.add(parentName);
-        }
-    });
-    sel.val(currentSystem.id);
-}
-
 export function startUI() {
 
     window.addEventListener('load', function () {
@@ -454,14 +577,10 @@ export function startUI() {
             imageUpload.value = "";
         });
 
-        ALL_DITHER_SETTINGS.forEach((dset, index) => {
-            var opt = $("<option />").text(dset.name).val(index);
-            $("#diffuseTypeSelect").append(opt);
-        });
-        ERROR_FUNCS.forEach((dset, index) => {
-            var opt = $("<option />").text(dset.name).val(dset.id);
-            $("#errorFuncSelect").append(opt);
-        });
+        // Populate button groups
+        populateDitherButtons();
+        populateErrorFuncButtons();
+        populateSystemSidebar();
 
         dithertron.pixelsAvailable = (msg) => {
             // TODO: resize canvas?
@@ -492,14 +611,41 @@ export function startUI() {
         $("#contrastSlider").on('change', reprocessImage);
         $("#saturationSlider").on('change', reprocessImage);
         $("#resetButton").on('click', resetImage);
-        $("#diffuseTypeSelect").on('change', resetImage);
-        $("#targetFormatSelect").change((e) => {
-            var opt = (e.target as HTMLSelectElement).selectedOptions[0];
-            if (opt) {
-                setTargetSystem(SYSTEM_LOOKUP[opt.value]);
+
+        // Error function buttons
+        $('#errorFuncGroup').on('click', '.error-func-btn', function() {
+            $('.error-func-btn').removeClass('active');
+            $(this).addClass('active');
+            resetImage();
+        });
+
+        // Dither buttons
+        $('#ditherButtonGroup').on('click', '.dither-btn', function() {
+            $('.dither-btn').removeClass('active');
+            $(this).addClass('active');
+            resetImage();
+        });
+
+        // System sidebar toggle
+        $('#systemSelectorToggle').on('click', () => toggleSystemSidebar(true));
+        $('#systemSidebarBackdrop, #systemSidebarClose').on('click', () => toggleSystemSidebar(false));
+
+        // System search
+        $('#systemSearch').on('input', function() {
+            filterSystems($(this).val() as string);
+        });
+
+        // System buttons in sidebar
+        $('#systemSidebar').on('click', '.system-btn', function() {
+            const sysId = $(this).attr('data-system-id');
+            if (sysId && SYSTEM_LOOKUP[sysId]) {
+                setTargetSystem(SYSTEM_LOOKUP[sysId]);
+                toggleSystemSidebar(false);
+                $('#systemSearch').val('');
+                filterSystems('');
             }
         });
-        $("#errorFuncSelect").on('change', resetImage);
+
         $("#downloadImageBtn").click(downloadImageFormat);
         $("#downloadNativeBtn").click(downloadNativeFormat);
         $("#gotoIDE").click(gotoIDE);
