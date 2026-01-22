@@ -22,8 +22,43 @@
     <title>Dithertron</title>
     <!-- local CSS -->
     <style type="text/css" media="screen">
-        body {
-            background: #999;
+        /* Footer styles - fixed at bottom of viewport */
+        .page-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 280px; /* Account for sidebar on desktop */
+            text-align: center;
+            padding: 0.5rem 1rem;
+            color: #6c757d;
+            font-size: 0.85rem;
+            background: rgba(255,255,255,0.95);
+            border-top: 1px solid #dee2e6;
+            z-index: 1000;
+        }
+        .page-footer a {
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .page-footer a:hover {
+            color: #343a40;
+            text-decoration: underline;
+        }
+        .footer-separator {
+            margin: 0 0.5rem;
+            color: #adb5bd;
+        }
+        .page-footer .dropdown-menu {
+            font-size: 0.85rem;
+        }
+        .page-footer .dropdown-item img {
+            height: 2em;
+            margin-right: 0.5rem;
+        }
+        @media (max-width: 991px) {
+            .page-footer {
+                right: 0; /* Full width on mobile */
+            }
         }
         /* Custom CSS to make the container full-screen on desktop */
         @media (min-width: 768px) {
@@ -36,6 +71,7 @@
                 height: 100vh;
                 display: flex;
                 flex-direction: column;
+                padding-bottom: 3rem; /* Space for fixed footer */
             }
             .responsive-row {
                 display: flex;
@@ -247,6 +283,49 @@
             white-space: nowrap;
         }
 
+        /* Palette swatches */
+        .palette-swatch {
+            display: inline-block;
+            width: 2em;
+            height: 1.5em;
+            border: 1px solid #333;
+            margin: 2px;
+        }
+        .palette-swatch-clickable {
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .palette-swatch-clickable:hover {
+            transform: scale(1.15);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            z-index: 1;
+            position: relative;
+        }
+        #resetPaletteBtn {
+            display: block;
+            margin: 0.5rem auto 0;
+        }
+
+        /* Color picker panel */
+        .color-picker-panel {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #343a40;
+            border: 1px solid #6c757d;
+            border-radius: 0.25rem;
+            padding: 0.35rem 0.5rem;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .color-picker-input {
+            width: 2.5rem;
+            height: 2rem;
+            padding: 0;
+            border: none;
+            cursor: pointer;
+        }
+
         /* Responsive improvements */
         @media (max-width: 767px) {
             .responsive-row {
@@ -274,53 +353,8 @@
 <body class="full-screen-container">
     <div class="container-xl">
 
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="navbar-collapse collapse w-100 order-1 order-md-0 dual-collapse2">
-                <ul class="navbar-nav mr-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://github.com/sehugg/dithertron#dithertron"
-                            target="_github">README</a>
-                    </li>
-                </ul>
-            </div>
-            <div class="mx-auto order-0">
-                <a class="navbar-brand mx-auto" href="#">D I T H E R T R O N</a>
-                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".dual-collapse2">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-            </div>
-            <div class="navbar-collapse collapse w-100 order-3 dual-collapse2">
-                <ul class="navbar-nav ml-auto">
-                    <li class="nav-item dropdown" id="booksMenu">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
-                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            📚 Books <span class="caret"></span>
-                        </a>
-                        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
-                            <a class="dropdown-item dropdown-link book-vcs" target="_book_a2600"
-                                href="https://www.amazon.com/gp/product/1541021304/ref=as_li_qf_sp_asin_il_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=B01N4DSRIZ">
-                                <img src="images/books/book_a2600.png" />
-                                &nbsp;&nbsp;<span class="book-title">Making Games For The Atari 2600</span>
-                            </a>
-                            <a class="dropdown-item dropdown-link book-arcade" target="_book_arcade"
-                                href="https://www.amazon.com/gp/product/1545484759/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1545484759">
-                                <img src="images/books/book_arcade.png" />
-                                &nbsp;&nbsp;<span class="book-title">Making 8-bit Arcade Games in C</span>
-                            </a>
-                            <a class="dropdown-item dropdown-link book-verilog" target="_book_verilog"
-                                href="https://www.amazon.com/gp/product/1728619440/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1728619440">
-                                <img src="images/books/book_verilog.png" />
-                                &nbsp;&nbsp;<span class="book-title">Designing Video Game Hardware in Verilog</span>
-                            </a>
-                            <a class="dropdown-item dropdown-link book-nes" target="_book_nes"
-                                href="https://www.amazon.com/gp/product/1075952727/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1075952727">
-                                <img src="images/books/book_nes.png" />
-                                &nbsp;&nbsp;<span class="book-title">Making Games For The NES</span>
-                            </a>
-                        </div>
-                    </li>
-                </ul>
-            </div>
+        <nav class="navbar justify-content-center">
+            <a class="navbar-brand text-dark" href="#">DITHERTRON 2.0</a>
         </nav>
 
         <div class="responsive-row">
@@ -351,11 +385,8 @@
                     <div>
                         <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
                             title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
-                        <button id="downloadNativeBtn" type="button" class="btn btn-secondary btn-sm"
-                            title="Download a binary file in the target format">BIN <i
-                                class="fa fa-download"></i></button>
-                        <button id="gotoIDE" type="button" class="btn btn-secondary btn-sm"
-                            title="Open in 8bitworkshop">Open in 8bitworkshop <i class="fa fa-share"></i></button>
+                        <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
+                            title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                     </div>
                 </div>
             </div>
@@ -454,6 +485,37 @@
             }
         </script>
     </div>
+
+    <!-- Footer -->
+    <footer class="page-footer">
+        <a href="https://github.com/sehugg/dithertron#dithertron" target="_github">README</a>
+        <span class="footer-separator">|</span>
+        <div class="dropdown d-inline-block">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Books</a>
+            <div class="dropdown-menu dropdown-menu-right">
+                <a class="dropdown-item" target="_book_a2600"
+                    href="https://www.amazon.com/gp/product/1541021304/ref=as_li_qf_sp_asin_il_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=B01N4DSRIZ">
+                    <img src="images/books/book_a2600.png" />
+                    Making Games For The Atari 2600
+                </a>
+                <a class="dropdown-item" target="_book_arcade"
+                    href="https://www.amazon.com/gp/product/1545484759/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1545484759">
+                    <img src="images/books/book_arcade.png" />
+                    Making 8-bit Arcade Games in C
+                </a>
+                <a class="dropdown-item" target="_book_verilog"
+                    href="https://www.amazon.com/gp/product/1728619440/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1728619440">
+                    <img src="images/books/book_verilog.png" />
+                    Designing Video Game Hardware in Verilog
+                </a>
+                <a class="dropdown-item" target="_book_nes"
+                    href="https://www.amazon.com/gp/product/1075952727/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1075952727">
+                    <img src="images/books/book_nes.png" />
+                    Making Games For The NES
+                </a>
+            </div>
+        </div>
+    </footer>
 
     <!-- System selector sidebar -->
     <div class="system-sidebar-backdrop" id="systemSidebarBackdrop"></div>
