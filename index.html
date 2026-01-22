@@ -67,6 +67,18 @@
         #examplesMenu {
             font-size: 0.8em;
         }
+        /* Reduce spacing between top UI and images */
+        .responsive-row .alert {
+            margin-bottom: 0;
+            padding: 0.5rem 0.75rem;
+        }
+        .responsive-row:first-of-type {
+            height: auto;
+        }
+        .responsive-row + .responsive-row {
+            margin-top: 0;
+            padding-top: 0;
+        }
 
         /* Error function buttons */
         .error-func-group {
