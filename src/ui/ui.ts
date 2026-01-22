@@ -16,6 +16,12 @@ var letterboxMode = false;
 // System IDs list for keyboard navigation
 var allSystemIds: string[] = [];
 
+// Mutable palette for color picker feature
+var currentPalette: Uint32Array | null = null;
+var originalPalette: Uint32Array | null = null;
+var paletteModified = false;
+var optimalPaletteCaptured = false; // Track if we've captured the optimal palette from worker
+
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
 var saturationSlider = document.getElementById('saturationSlider') as HTMLInputElement;
@@ -397,16 +403,114 @@ function showSystemInfo(sys: DithertronSettings) {
     $("#targetFormatInfo").text(getSystemInfo(sys));
 }
 
+// Convert 0x00BBGGRR to #RRGGBB hex string for color input
+function uint32ToHex(col: number): string {
+    const r = col & 0xff;
+    const g = (col >> 8) & 0xff;
+    const b = (col >> 16) & 0xff;
+    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+// Convert #RRGGBB hex string to 0x00BBGGRR format
+function hexToUint32(hex: string): number {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r & 0xff) | ((g & 0xff) << 8) | ((b & 0xff) << 16);
+}
+
 function updatePaletteSwatches(pal: Uint32Array) {
     var swat = $("#paletteSwatches");
     swat.empty();
+
     if (pal && pal.length < 64) {
+        // For systems with palette reduction, capture the optimal palette from worker
+        // on first result (before any user modifications)
+        if (!paletteModified && !optimalPaletteCaptured) {
+            originalPalette = new Uint32Array(pal);
+            currentPalette = new Uint32Array(pal);
+            optimalPaletteCaptured = true;
+        }
+
         pal.forEach((col, index) => {
             var rgb = "rgb(" + (col & 0xff) + "," + ((col >> 8) & 0xff) + "," + ((col >> 16) & 0xff) + ")";
-            var sq = $('<span style="width:2em">&nbsp;</span>').css("background-color", rgb);
+            var sq = $('<span class="palette-swatch palette-swatch-clickable">&nbsp;</span>')
+                .css("background-color", rgb)
+                .attr('data-index', index);
             swat.append(sq);
         });
+
+        // Show/hide reset button based on palette modification state
+        updateResetButtonVisibility();
     }
+}
+
+function updateResetButtonVisibility() {
+    if (paletteModified) {
+        $('#resetPaletteBtn').show();
+    } else {
+        $('#resetPaletteBtn').hide();
+    }
+}
+
+function onSwatchClick(e: JQuery.ClickEvent) {
+    const index = parseInt($(e.currentTarget).attr('data-index') || '0');
+    if (currentPalette == null || index >= currentPalette.length) return;
+
+    // Get current color and set color picker value
+    const currentColor = uint32ToHex(currentPalette[index]);
+    $('#colorPickerInput').val(currentColor);
+    $('#colorPickerPanel').attr('data-swatch-index', index.toString());
+
+    // Show the color picker panel
+    $('#colorPickerPanel').show();
+}
+
+function onColorPickerAccept() {
+    const panel = $('#colorPickerPanel');
+    const index = parseInt(panel.attr('data-swatch-index') || '0');
+    const newColor = hexToUint32($('#colorPickerInput').val() as string);
+
+    if (currentPalette == null || index >= currentPalette.length) return;
+
+    // Update the mutable palette
+    currentPalette[index] = newColor;
+    paletteModified = true;
+
+    // Hide the picker panel
+    panel.hide();
+
+    // Update the settings palette and re-dither
+    dithertron.settings.pal = currentPalette;
+    resetImage();
+}
+
+
+function resetPalette() {
+    if (originalPalette == null) return;
+
+    // Restore original palette
+    currentPalette = new Uint32Array(originalPalette);
+    paletteModified = false;
+
+    // Update settings and re-dither
+    dithertron.settings.pal = currentPalette;
+    resetImage();
+}
+
+function initializePaletteFromSystem(sys: DithertronSettings) {
+    // For systems with reduce, we'll capture the optimal palette from the worker
+    // For other systems, use the system palette directly
+    if (sys.reduce) {
+        // Will be captured from worker result in updatePaletteSwatches
+        originalPalette = null;
+        currentPalette = null;
+    } else {
+        originalPalette = new Uint32Array(sys.pal);
+        currentPalette = new Uint32Array(sys.pal);
+    }
+    paletteModified = false;
+    optimalPaletteCaptured = false;
 }
 
 function isExactMatch(imageData: Cropper.ImageData) {
@@ -455,6 +559,8 @@ function loadSourceImage(url: string) {
 
 function setTargetSystem(sys: DithertronSettings) {
     var showNoise = sys.conv != 'DitheringCanvas';
+    // Initialize mutable palette before setting up worker
+    initializePaletteFromSystem(sys);
     dithertron.newWorker();
     dithertron.setSettings(sys);
     dithertron.restart();
@@ -465,8 +571,6 @@ function setTargetSystem(sys: DithertronSettings) {
     (destCanvas.style as any).aspectRatio = (sys.width * pixelAspect / sys.height).toString();
     $("#noiseSection").css('display', showNoise ? 'flex' : 'none');
     $("#diversitySection").css('display', sys.reduce ? 'flex' : 'none');
-    $("#downloadNativeBtn").css('display', sys.toNative ? 'inline' : 'none');
-    $("#gotoIDE").css('display', getCodeConvertFunction() ? 'inline' : 'none');
     if (cropper) {
         loadSourceImage((cropper as any).url); // TODO?
     }
@@ -499,6 +603,27 @@ function downloadImageFormat() {
     destCanvas.toBlob((blob) => {
         saveAs(blob, getFilenamePrefix() + ".png");
     }, "image/png");
+}
+async function copyImageToClipboard() {
+    try {
+        const blob = await new Promise<Blob>((resolve, reject) => {
+            destCanvas.toBlob((b) => {
+                if (b) resolve(b);
+                else reject(new Error("Failed to create blob"));
+            }, "image/png");
+        });
+        await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+        ]);
+        // Brief visual feedback
+        const btn = $('#copyImageBtn');
+        const originalText = btn.html();
+        btn.html('<i class="fa fa-check"></i> Copied!');
+        setTimeout(() => btn.html(originalText), 1500);
+    } catch (err) {
+        console.error("Failed to copy image:", err);
+        alert("Failed to copy image to clipboard. Your browser may not support this feature.");
+    }
 }
 function byteArrayToString(data: number[] | Uint8Array): string {
     var str = "";
@@ -671,6 +796,25 @@ export function startUI() {
         // Letterbox toggle
         $('#letterboxToggle').on('click', toggleLetterboxMode);
 
+        // Create color picker panel and reset button
+        const colorPickerHtml = `
+            <div id="colorPickerPanel" class="color-picker-panel" style="display:none;">
+                <input type="color" id="colorPickerInput" class="color-picker-input">
+                <button type="button" class="btn btn-sm btn-primary" id="colorPickerAcceptBtn">Apply</button>
+            </div>
+        `;
+        $('#paletteSwatches').after(colorPickerHtml);
+        $('#colorPickerPanel').after('<button id="resetPaletteBtn" class="btn btn-sm btn-outline-warning mt-1" style="display:none;">Reset Colors</button>');
+
+        // Palette swatch click handler
+        $('#paletteSwatches').on('click', '.palette-swatch-clickable', onSwatchClick);
+
+        // Color picker event handlers
+        $('#colorPickerAcceptBtn').on('click', onColorPickerAccept);
+
+        // Reset palette button handler
+        $('#resetPaletteBtn').on('click', resetPalette);
+
         // Keyboard navigation for system selection
         $(document).on('keydown', (e) => {
             // Only handle if not focused on an input
@@ -686,8 +830,7 @@ export function startUI() {
         });
 
         $("#downloadImageBtn").click(downloadImageFormat);
-        $("#downloadNativeBtn").click(downloadNativeFormat);
-        $("#gotoIDE").click(gotoIDE);
+        $("#copyImageBtn").click(copyImageToClipboard);
     });
 
     // print diags (TODO: generate markdown table)
