@@ -82,16 +82,89 @@
                 flex-direction: column;
             }
         }
+        /* Main layout structure */
+        .container-xl {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-bottom: 2.5rem; /* Space for fixed footer */
+        }
+        .main-layout {
+            display: flex;
+            flex: 1;
+            gap: 1rem; /* Gutter between columns */
+            min-height: 0; /* Allow flex children to shrink */
+            padding: 0 0.5rem;
+        }
+        .layout-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* Allow flex children to shrink */
+        }
+        .column-top {
+            flex-shrink: 0;
+        }
+        .column-top .alert {
+            margin-bottom: 0.5rem;
+        }
+        .column-image {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 0; /* Critical for flex shrinking */
+            overflow: hidden;
+        }
+        .image-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .column-bottom {
+            flex-shrink: 0;
+        }
+        .column-bottom .alert {
+            margin-bottom: 0;
+            margin-top: 0.5rem;
+        }
+
+        /* Source image (cropper) - always fill width */
+        .image-container:not(.rendered-container) {
+            align-items: flex-start;
+            overflow-y: auto;
+            background: #fff;
+        }
         img.crop {
             display: block;
-            max-width: 100%;
+            width: 100%;
         }
-        .emuvideo {
+        /* Override cropper.js grid background */
+        .cropper-bg {
+            background-image: none;
+            background-color: #fff;
+        }
+
+        /* Rendered image (canvas) */
+        .rendered-container {
+            flex-direction: column;
+            align-items: flex-start;
+            overflow-y: auto;
+        }
+        .rendered-canvas {
             display: block;
-            width: 85%;
-            margin: auto;
+            width: 100%;
+            height: auto;
             background: #000;
-            pointer-events: auto;
+        }
+        .palette-swatches-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 100%;
+            margin-top: 0.5rem;
         }
         #booksMenu {
             background-color: #666;
@@ -103,17 +176,24 @@
         #examplesMenu {
             font-size: 0.8em;
         }
-        /* Reduce spacing between top UI and images */
-        .responsive-row .alert {
-            margin-bottom: 0;
+        /* Compact alert styling */
+        .column-top .alert,
+        .column-bottom .alert {
             padding: 0.5rem 0.75rem;
         }
-        .responsive-row:first-of-type {
-            height: auto;
+        /* Slider panel header with reset button */
+        .slider-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 1px solid #dee2e6;
         }
-        .responsive-row + .responsive-row {
-            margin-top: 0;
-            padding-top: 0;
+        .slider-panel-title {
+            font-weight: 500;
+            font-size: 0.85rem;
+            color: #495057;
         }
         /* Letterbox toggle button */
         #letterboxToggle.active {
@@ -328,9 +408,15 @@
 
         /* Responsive improvements */
         @media (max-width: 767px) {
-            .responsive-row {
-                height: auto;
-                min-height: 40vh;
+            .main-layout {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .layout-column {
+                flex: none;
+            }
+            .column-image {
+                min-height: 30vh;
             }
             .dither-btn-group {
                 display: grid;
@@ -357,17 +443,22 @@
             <a class="navbar-brand text-dark" href="#">DITHERTRON 2.0</a>
         </nav>
 
-        <div class="responsive-row">
-            <div class="col-md-6">
-                <div class="dropdown show alert alert-info">
-                    <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                        Select an example
-                    </a> or upload an image.
-                    <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
+        <!-- Main two-column layout -->
+        <div class="main-layout">
+            <!-- Left Column: Source Image -->
+            <div class="layout-column">
+                <div class="column-top">
+                    <div class="alert alert-info">
+                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Select an example
+                        </a> or upload an image.
+                        <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
+                        </div>
+                        <div class="mt-2">
+                            <input type="file" id="imageUpload">
+                        </div>
                     </div>
-                    <p></p>
-                    <input type="file" id="imageUpload">
                 </div>
             </div>
             <div class="col-md-6">
@@ -389,85 +480,111 @@
                             title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                     </div>
                 </div>
-            </div>
-        </div>
-        <div class="responsive-row">
-            <div class="col-md-6 responsive-col">
-                <img class="crop" id="srcimage">
-            </div>
-            <div class="col-md-6 responsive-col">
-                <canvas id="destcanvas" class="emuvideo"></canvas>
-                <div id="paletteSwatches" class="mt-3 d-flex justify-content-center flex-wrap">
-                </div>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="alert alert-secondary mt-3">
-                    <div class="row align-items-center" id="brightSection">
-                        <label for="brightSlider" class="col-sm-3 col-form-label">Bright:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="brightSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="50" />
+                <div class="column-bottom">
+                    <div class="alert alert-secondary">
+                        <div class="slider-panel-header">
+                            <span class="slider-panel-title">Source Adjustments</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="resetSourceSliders">Reset</button>
                         </div>
-                    </div>
-                    <div class="row align-items-center" id="contrastSection">
-                        <label for="contrastSlider" class="col-sm-3 col-form-label">Contrast:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="contrastSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="50" />
+                        <div class="row align-items-center" id="brightSection">
+                            <label for="brightSlider" class="col-sm-3 col-form-label">Bright:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="brightSlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="100" data-slider-value="50" />
+                            </div>
                         </div>
-                    </div>
-                    <div class="row align-items-center" id="saturationSection">
-                        <label for="saturationSlider" class="col-sm-3 col-form-label">Color:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="saturationSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="50" />
+                        <div class="row align-items-center" id="contrastSection">
+                            <label for="contrastSlider" class="col-sm-3 col-form-label">Contrast:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="contrastSlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="100" data-slider-value="50" />
+                            </div>
                         </div>
-                    </div>
-                    <div class="row mt-2" id="errorFuncSection">
-                        <div class="col-12">
-                            <div class="error-func-group" id="errorFuncGroup" role="group">
-                                <!-- Error function buttons populated by JS -->
+                        <div class="row align-items-center" id="saturationSection">
+                            <label for="saturationSlider" class="col-sm-3 col-form-label">Color:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="saturationSlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="100" data-slider-value="50" />
+                            </div>
+                        </div>
+                        <div class="row mt-2" id="errorFuncSection">
+                            <div class="col-12">
+                                <div class="error-func-group" id="errorFuncGroup" role="group">
+                                    <!-- Error function buttons populated by JS -->
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
-                <div class="alert alert-secondary mt-3">
-                    <div class="row align-items-center" id="diversitySection">
-                        <label for="diversitySlider" class="col-sm-3 col-form-label">Diversity:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="diversitySlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="60" />
+
+            <!-- Right Column: Rendered Image -->
+            <div class="layout-column">
+                <div class="column-top">
+                    <div class="alert alert-info">
+                        Convert to:
+                        <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
+                            <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
+                        </button>
+                        <button id="letterboxToggle" type="button" class="btn btn-outline-secondary btn-sm ml-2" title="Toggle letterbox mode (fit image without cropping)">
+                            <i class="fa fa-arrows-alt"></i> Letterbox
+                        </button>
+                        <br>
+                        <small><span id="targetFormatInfo"></span></small>
+                        <div class="mt-1">
+                            <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
+                                title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
+                            <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
+                                title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                         </div>
                     </div>
-                    <div class="row align-items-center" id="orderedSection">
-                        <label for="orderedSlider" class="col-sm-3 col-form-label">Ordered:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="orderedSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="0" />
+                </div>
+                <div class="column-image">
+                    <div class="image-container rendered-container">
+                        <canvas id="destcanvas" class="rendered-canvas"></canvas>
+                        <div id="paletteSwatches" class="palette-swatches-container">
                         </div>
                     </div>
-                    <div class="row align-items-center" id="noiseSection">
-                        <label for="noiseSlider" class="col-sm-3 col-form-label">Noise:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="noiseSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="10" data-slider-value="5" />
+                </div>
+                <div class="column-bottom">
+                    <div class="alert alert-secondary">
+                        <div class="slider-panel-header">
+                            <span class="slider-panel-title">Dither Settings</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="resetDitherSliders">Reset</button>
                         </div>
-                    </div>
-                    <div class="row align-items-center" id="diffuseSection">
-                        <label for="diffuseSlider" class="col-sm-3 col-form-label">Diffusion:</label>
-                        <div class="col-sm-5 col-md-5">
-                            <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
-                                data-slider-max="100" data-slider-value="75" />
+                        <div class="row align-items-center" id="diversitySection">
+                            <label for="diversitySlider" class="col-sm-3 col-form-label">Diversity:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="diversitySlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="100" data-slider-value="60" />
+                            </div>
                         </div>
-                    </div>
-                    <div class="row mt-2" id="ditherButtonSection">
-                        <div class="col-12">
-                            <div class="dither-btn-group" id="ditherButtonGroup" role="group">
-                                <!-- Dither buttons populated by JS -->
+                        <div class="row align-items-center" id="orderedSection">
+                            <label for="orderedSlider" class="col-sm-3 col-form-label">Ordered:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="orderedSlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="100" data-slider-value="0" />
+                            </div>
+                        </div>
+                        <div class="row align-items-center" id="noiseSection">
+                            <label for="noiseSlider" class="col-sm-3 col-form-label">Noise:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="noiseSlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="10" data-slider-value="5" />
+                            </div>
+                        </div>
+                        <div class="row align-items-center" id="diffuseSection">
+                            <label for="diffuseSlider" class="col-sm-3 col-form-label">Diffusion:</label>
+                            <div class="col-sm-5 col-md-5">
+                                <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
+                                    data-slider-max="100" data-slider-value="75" />
+                            </div>
+                        </div>
+                        <div class="row mt-2" id="ditherButtonSection">
+                            <div class="col-12">
+                                <div class="dither-btn-group" id="ditherButtonGroup" role="group">
+                                    <!-- Dither buttons populated by JS -->
+                                </div>
                             </div>
                         </div>
                     </div>

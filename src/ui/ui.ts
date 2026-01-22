@@ -330,6 +330,27 @@ function resetImage() {
     dithertron.restart();
 }
 
+function resetSourceSliders() {
+    // Reset source adjustment sliders to defaults using bootstrap-slider API
+    ($('#brightSlider') as any).slider('setValue', 50);
+    ($('#contrastSlider') as any).slider('setValue', 50);
+    ($('#saturationSlider') as any).slider('setValue', 50);
+    // Reset error function to first option (Perceptual)
+    $('.error-func-btn').removeClass('active').first().addClass('active');
+    reprocessImage();
+}
+
+function resetDitherSliders() {
+    // Reset dither sliders to defaults using bootstrap-slider API
+    ($('#diversitySlider') as any).slider('setValue', 60);
+    ($('#orderedSlider') as any).slider('setValue', 0);
+    ($('#noiseSlider') as any).slider('setValue', 5);
+    ($('#diffuseSlider') as any).slider('setValue', 75);
+    // Reset dither algorithm to first option (Floyd-Steinberg)
+    $('.dither-btn').removeClass('active').first().addClass('active');
+    resetImage();
+}
+
 function convertImage() {
     let cropCanvas = cropper?.getCroppedCanvas();
     // avoid "Failed to execute 'createImageBitmap' on 'Window': The crop rect height is 0."
@@ -757,7 +778,8 @@ export function startUI() {
         $("#brightSlider").on('change', reprocessImage);
         $("#contrastSlider").on('change', reprocessImage);
         $("#saturationSlider").on('change', reprocessImage);
-        $("#resetButton").on('click', resetImage);
+        $("#resetSourceSliders").on('click', resetSourceSliders);
+        $("#resetDitherSliders").on('click', resetDitherSliders);
 
         // Error function buttons
         $('#errorFuncGroup').on('click', '.error-func-btn', function() {
