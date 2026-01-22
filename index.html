@@ -134,35 +134,18 @@
             border-color: #0056b3;
         }
 
-        /* System selector sidebar */
+        /* System selector sidebar - always visible on desktop */
         .system-sidebar {
             position: fixed;
             top: 0;
-            right: -320px;
-            width: 320px;
+            right: 0;
+            width: 280px;
             height: 100vh;
             background: #343a40;
-            transition: right 0.3s ease;
             z-index: 1050;
             overflow-y: auto;
             padding: 1rem;
             box-shadow: -2px 0 10px rgba(0,0,0,0.3);
-        }
-        .system-sidebar.open {
-            right: 0;
-        }
-        .system-sidebar-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1040;
-            display: none;
-        }
-        .system-sidebar-backdrop.open {
-            display: block;
         }
         .system-sidebar-header {
             display: flex;
@@ -170,6 +153,9 @@
             align-items: center;
             margin-bottom: 1rem;
             color: #fff;
+        }
+        .system-sidebar-header h5 {
+            margin: 0;
         }
         .system-sidebar-close {
             background: none;
@@ -179,9 +165,45 @@
             cursor: pointer;
             padding: 0;
             line-height: 1;
+            display: none;  /* Hidden by default (desktop) */
         }
         .system-sidebar-close:hover {
             color: #adb5bd;
+        }
+        /* Body padding to make room for sidebar on desktop */
+        @media (min-width: 992px) {
+            body.full-screen-container {
+                padding-right: 280px;
+            }
+            #systemSelectorToggle {
+                display: none;
+            }
+        }
+        /* Mobile: hide sidebar, show toggle button */
+        @media (max-width: 991px) {
+            .system-sidebar {
+                right: -280px;
+                transition: right 0.3s ease;
+            }
+            .system-sidebar.open {
+                right: 0;
+            }
+            .system-sidebar-close {
+                display: block;
+            }
+            .system-sidebar-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1040;
+                display: none;
+            }
+            .system-sidebar-backdrop.open {
+                display: block;
+            }
         }
         #systemSearch {
             width: 100%;
@@ -194,35 +216,6 @@
         }
         #systemSearch::placeholder {
             color: #adb5bd;
-        }
-        .system-category-accordion .card {
-            background: #3a3f44;
-            border: 1px solid #6c757d;
-            margin-bottom: 0.25rem;
-        }
-        .system-category-accordion .card-header {
-            background: #495057;
-            cursor: pointer;
-            padding: 0.5rem 0.75rem;
-            border-bottom: none;
-        }
-        .system-category-accordion .card-header:hover {
-            background: #5a6268;
-        }
-        .system-category-accordion .card-header h6 {
-            color: #fff;
-            margin: 0;
-            font-size: 0.85rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .system-category-accordion .card-header .badge {
-            font-size: 0.7rem;
-        }
-        .system-category-accordion .card-body {
-            padding: 0.5rem;
-            background: #3a3f44;
         }
         .system-btn {
             display: block;

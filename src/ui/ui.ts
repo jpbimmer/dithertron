@@ -13,6 +13,9 @@ import { EXAMPLE_IMAGES } from "./sampleimages";
 var cropper : Cropper;
 var letterboxMode = false;
 
+// System IDs list for keyboard navigation
+var allSystemIds: string[] = [];
+
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
 var saturationSlider = document.getElementById('saturationSlider') as HTMLInputElement;
@@ -90,29 +93,6 @@ const ERROR_FUNCS = [
     { id: 'max', name: "Maximum" },
 ];
 
-// System categories for sidebar organization
-const SYSTEM_CATEGORIES: { [key: string]: string[] } = {
-    'Commodore': ['c64', 'vic20'],
-    'Nintendo': ['nes', 'snes', 'gb', 'gbc', 'virtualboy'],
-    'Atari': ['atari8', 'vcs', 'atari7800', 'atarist', 'astrocade'],
-    'Apple': ['apple2', 'appleiigs', 'mac'],
-    'Sega': ['sms', 'genesis', 'gg'],
-    'ZX/UK': ['zx', 'bbc', 'cpc', 'teletext'],
-    'PC': ['x86'],
-    'Other': [] // Catch-all for everything else
-};
-
-function getCategoryFromSystemId(id: string): string {
-    const idPrefix = id.split('.')[0].toLowerCase();
-    for (const [category, prefixes] of Object.entries(SYSTEM_CATEGORIES)) {
-        if (category === 'Other') continue;
-        if (prefixes.some(prefix => idPrefix.startsWith(prefix) || idPrefix === prefix)) {
-            return category;
-        }
-    }
-    return 'Other';
-}
-
 function populateErrorFuncButtons() {
     const container = $('#errorFuncGroup');
     container.empty();
@@ -138,57 +118,25 @@ function populateDitherButtons() {
 }
 
 function populateSystemSidebar() {
-    const accordion = $('#systemAccordion');
-    accordion.empty();
+    const container = $('#systemAccordion');
+    container.empty();
 
-    // Group systems by category
-    const categorizedSystems: { [key: string]: DithertronSettings[] } = {};
-    const categoryOrder = ['Commodore', 'Nintendo', 'Atari', 'Apple', 'Sega', 'ZX/UK', 'PC', 'Other'];
-
-    categoryOrder.forEach(cat => categorizedSystems[cat] = []);
-
+    // Create flat list of system buttons in order
     SYSTEMS.forEach(sys => {
         if (sys) {
-            const category = getCategoryFromSystemId(sys.id);
-            categorizedSystems[category].push(sys);
-        }
-    });
-
-    // Create accordion cards for each category
-    categoryOrder.forEach((category, catIndex) => {
-        const systems = categorizedSystems[category];
-        if (systems.length === 0) return;
-
-        const cardId = `systemCategory${catIndex}`;
-        const collapseId = `collapse${catIndex}`;
-
-        const card = $(`
-            <div class="card">
-                <div class="card-header" id="${cardId}" data-toggle="collapse" data-target="#${collapseId}">
-                    <h6>
-                        ${category}
-                        <span class="badge badge-secondary">${systems.length}</span>
-                    </h6>
-                </div>
-                <div id="${collapseId}" class="collapse" data-parent="#systemAccordion">
-                    <div class="card-body"></div>
-                </div>
-            </div>
-        `);
-
-        const cardBody = card.find('.card-body');
-        systems.forEach(sys => {
             const btn = $('<button type="button" class="system-btn"></button>')
                 .text(sys.name)
                 .attr('data-system-id', sys.id);
-            cardBody.append(btn);
-        });
-
-        accordion.append(card);
+            container.append(btn);
+        }
     });
 }
 
 function toggleSystemSidebar(open: boolean) {
+    // Only toggle on mobile (sidebar is always visible on desktop)
+    const isMobile = window.innerWidth < 992;
+    if (!isMobile) return;
+
     if (open) {
         $('#systemSidebar').addClass('open');
         $('#systemSidebarBackdrop').addClass('open');
@@ -205,9 +153,8 @@ function filterSystems(searchTerm: string) {
     const sidebar = $('#systemSidebar');
 
     if (!term) {
-        // Show all systems and collapse accordions
+        // Show all systems
         sidebar.find('.system-btn').removeClass('d-none');
-        sidebar.find('.collapse').removeClass('show');
         return;
     }
 
@@ -218,18 +165,6 @@ function filterSystems(searchTerm: string) {
         const id = (btn.attr('data-system-id') || '').toLowerCase();
         const matches = name.includes(term) || id.includes(term);
         btn.toggleClass('d-none', !matches);
-    });
-
-    // Expand categories that have visible systems
-    sidebar.find('.card').each(function() {
-        const card = $(this);
-        const hasVisibleSystems = card.find('.system-btn:not(.d-none)').length > 0;
-        const collapse = card.find('.collapse');
-        if (hasVisibleSystems) {
-            collapse.addClass('show');
-        } else {
-            collapse.removeClass('show');
-        }
     });
 }
 
@@ -247,6 +182,34 @@ function toggleLetterboxMode() {
     // Reload the source image to apply new cropper settings
     if (cropper) {
         loadSourceImage((cropper as any).url);
+    }
+}
+
+// Build list of system IDs for keyboard navigation
+function buildSystemIdList() {
+    allSystemIds = SYSTEMS.filter(s => s !== null).map(s => s!.id);
+}
+
+// Select system by offset (for arrow key navigation)
+function selectSystemByOffset(offset: number) {
+    const currentId = dithertron.settings.id;
+    const currentIndex = allSystemIds.indexOf(currentId);
+    let newIndex = currentIndex + offset;
+
+    // Wrap around
+    if (newIndex < 0) newIndex = allSystemIds.length - 1;
+    if (newIndex >= allSystemIds.length) newIndex = 0;
+
+    const newId = allSystemIds[newIndex];
+    setTargetSystem(SYSTEM_LOOKUP[newId]);
+    scrollSystemIntoView(newId);
+}
+
+// Scroll the selected system button into view
+function scrollSystemIntoView(sysId: string) {
+    const btn = $(`.system-btn[data-system-id="${sysId}"]`);
+    if (btn.length) {
+        btn[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 }
 
@@ -639,6 +602,7 @@ export function startUI() {
         populateDitherButtons();
         populateErrorFuncButtons();
         populateSystemSidebar();
+        buildSystemIdList();
 
         dithertron.pixelsAvailable = (msg) => {
             // TODO: resize canvas?
@@ -706,6 +670,20 @@ export function startUI() {
 
         // Letterbox toggle
         $('#letterboxToggle').on('click', toggleLetterboxMode);
+
+        // Keyboard navigation for system selection
+        $(document).on('keydown', (e) => {
+            // Only handle if not focused on an input
+            if ($(e.target).is('input, textarea')) return;
+
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectSystemByOffset(-1);
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectSystemByOffset(1);
+            }
+        });
 
         $("#downloadImageBtn").click(downloadImageFormat);
         $("#downloadNativeBtn").click(downloadNativeFormat);
