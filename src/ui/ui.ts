@@ -11,6 +11,7 @@ import { saveAs } from 'file-saver';
 import { EXAMPLE_IMAGES } from "./sampleimages";
 
 var cropper : Cropper;
+var letterboxMode = false;
 
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
@@ -239,6 +240,16 @@ function updateCurrentSystemDisplay(sys: DithertronSettings) {
     $(`.system-btn[data-system-id="${sys.id}"]`).addClass('active');
 }
 
+function toggleLetterboxMode() {
+    letterboxMode = !letterboxMode;
+    $('#letterboxToggle').toggleClass('active', letterboxMode);
+
+    // Reload the source image to apply new cropper settings
+    if (cropper) {
+        loadSourceImage((cropper as any).url);
+    }
+}
+
 //
 
 var fingerprintErrorShown = false;
@@ -354,17 +365,57 @@ function convertImage() {
     let cropCanvas = cropper?.getCroppedCanvas();
     // avoid "Failed to execute 'createImageBitmap' on 'Window': The crop rect height is 0."
     if (!cropCanvas?.width || !cropCanvas?.height) return;
-    pica().resize(cropCanvas, resizeCanvas, {
-        /*
-        unsharpAmount: 50,
-        unsharpRadius: 0.5,
-        unsharpThreshold: 2
-        */
-    }).then(() => {
-        reprocessImage();
-    }).catch((err) => {
-        showFingerprintError(err);
-    });
+
+    if (letterboxMode) {
+        // Letterbox mode: fit image within target dimensions, fill rest with black
+        const targetWidth = resizeCanvas.width;
+        const targetHeight = resizeCanvas.height;
+        const sourceWidth = cropCanvas.width;
+        const sourceHeight = cropCanvas.height;
+
+        // Calculate scale to fit within target while maintaining aspect ratio
+        const scaleX = targetWidth / sourceWidth;
+        const scaleY = targetHeight / sourceHeight;
+        const scale = Math.min(scaleX, scaleY);
+
+        const scaledWidth = Math.round(sourceWidth * scale);
+        const scaledHeight = Math.round(sourceHeight * scale);
+
+        // Create intermediate canvas at scaled size
+        const intermediateCanvas = document.createElement('canvas');
+        intermediateCanvas.width = scaledWidth;
+        intermediateCanvas.height = scaledHeight;
+
+        // Resize source to intermediate canvas
+        pica().resize(cropCanvas, intermediateCanvas, {}).then(() => {
+            // Clear resizeCanvas to black
+            const ctx = resizeCanvas.getContext('2d');
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+            // Center the scaled image on resizeCanvas
+            const offsetX = Math.round((targetWidth - scaledWidth) / 2);
+            const offsetY = Math.round((targetHeight - scaledHeight) / 2);
+            ctx.drawImage(intermediateCanvas, offsetX, offsetY);
+
+            reprocessImage();
+        }).catch((err) => {
+            showFingerprintError(err);
+        });
+    } else {
+        // Normal mode: stretch to fill target dimensions
+        pica().resize(cropCanvas, resizeCanvas, {
+            /*
+            unsharpAmount: 50,
+            unsharpRadius: 0.5,
+            unsharpThreshold: 2
+            */
+        }).then(() => {
+            reprocessImage();
+        }).catch((err) => {
+            showFingerprintError(err);
+        });
+    }
 }
 
 function getSystemInfo(sys: DithertronSettings) {
@@ -416,10 +467,10 @@ function loadSourceImage(url: string) {
     if (cropper) cropper.destroy();
     const settings = dithertron.settings;
     let aspect = (settings.width * (settings.scaleX || 1) / settings.height) || (4 / 3);
-    cropper = new Cropper(sourceImage, {
+
+    const cropperOptions: Cropper.Options = {
         viewMode: 1,
         autoCropArea: 1.0,
-        initialAspectRatio: aspect,
         crop(event) {
             if (isExactMatch(cropper.getImageData())) {
                 processImageDirectly();
@@ -427,7 +478,14 @@ function loadSourceImage(url: string) {
                 convertImage();
             }
         },
-    });
+    };
+
+    // Only force aspect ratio if not in letterbox mode
+    if (!letterboxMode) {
+        cropperOptions.aspectRatio = aspect;
+    }
+
+    cropper = new Cropper(sourceImage, cropperOptions);
     cropper.replace(url);
     updateURL();
 }
@@ -645,6 +703,9 @@ export function startUI() {
                 filterSystems('');
             }
         });
+
+        // Letterbox toggle
+        $('#letterboxToggle').on('click', toggleLetterboxMode);
 
         $("#downloadImageBtn").click(downloadImageFormat);
         $("#downloadNativeBtn").click(downloadNativeFormat);
