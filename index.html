@@ -60,6 +60,28 @@
                 right: 0; /* Full width on mobile */
             }
         }
+        /* Custom CSS to make the container full-screen on desktop */
+        @media (min-width: 768px) {
+            .full-screen-container {
+                height: 100vh;
+                display: flex;
+                align-items: center;
+            }
+            .container-xl {
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                padding-bottom: 3rem; /* Space for fixed footer */
+            }
+            .responsive-row {
+                display: flex;
+                height: 50vh;
+            }
+            .responsive-col {
+                display: flex;
+                flex-direction: column;
+            }
+        }
         /* Main layout structure */
         .container-xl {
             display: flex;
@@ -384,7 +406,7 @@
             cursor: pointer;
         }
 
-        /* Responsive: stack columns on mobile */
+        /* Responsive improvements */
         @media (max-width: 767px) {
             .main-layout {
                 flex-direction: column;
@@ -438,9 +460,24 @@
                         </div>
                     </div>
                 </div>
-                <div class="column-image">
-                    <div class="image-container">
-                        <img class="crop" id="srcimage">
+            </div>
+            <div class="col-md-6">
+                <div class="alert alert-info">
+                    Convert to:
+                    <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
+                        <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
+                    </button>
+                    <button id="letterboxToggle" type="button" class="btn btn-outline-secondary btn-sm ml-2" title="Toggle letterbox mode (fit image without cropping)">
+                        <i class="fa fa-arrows-alt"></i> Letterbox
+                    </button>
+                    <br>
+                    <small><span id="targetFormatInfo"></span></small>
+                    <br>
+                    <div>
+                        <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
+                            title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
+                        <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
+                            title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                     </div>
                 </div>
                 <div class="column-bottom">
