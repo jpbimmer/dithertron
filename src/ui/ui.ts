@@ -128,8 +128,12 @@ function populateSystemSidebar() {
     const container = $('#systemAccordion');
     container.empty();
 
-    // Create flat list of system buttons in order
-    SYSTEMS.forEach(sys => {
+    // Create alphabetically sorted list of system buttons
+    const sortedSystems = SYSTEMS
+        .filter(sys => sys !== null)
+        .sort((a, b) => a!.name.localeCompare(b!.name));
+
+    sortedSystems.forEach(sys => {
         if (sys) {
             const btn = $('<button type="button" class="system-btn"></button>')
                 .text(sys.name)
@@ -178,7 +182,10 @@ function showSubSystems(categoryId: string, button: SystemButton) {
     row.empty();
 
     if (button.subSystems && button.subSystems.length > 0) {
-        button.subSystems.forEach(subId => {
+        // Include the default system (button.systemId) as the first option
+        const allSubSystems = [button.systemId, ...button.subSystems];
+
+        allSubSystems.forEach(subId => {
             const sys = SYSTEM_LOOKUP[subId];
             if (sys) {
                 const subBtn = $('<button type="button" class="sub-system-btn"></button>')
@@ -243,6 +250,11 @@ function updateTabbedSelectorDisplay(sys: DithertronSettings) {
     } else {
         // This is a main system button
         $(`.system-tab-btn[data-system-id="${sys.id}"]`).addClass('active');
+
+        // If sub-systems are expanded for this button, also highlight in the sub-systems row
+        if (expandedButtonId) {
+            $(`.sub-system-btn[data-system-id="${sys.id}"]`).addClass('active');
+        }
     }
 }
 
@@ -251,11 +263,11 @@ function getActiveTabSystemIds(): string[] {
     const category = SYSTEM_CATEGORIES.find(c => c.id === activeTabId);
     if (!category) return [];
 
-    // If sub-systems are expanded, return sub-system IDs
+    // If sub-systems are expanded, return default + sub-system IDs
     if (expandedButtonId) {
         const button = category.systems.find(b => b.id === expandedButtonId);
         if (button?.subSystems) {
-            return button.subSystems;
+            return [button.systemId, ...button.subSystems];
         }
     }
 
@@ -311,16 +323,25 @@ function setupTabbedSelectorEvents() {
 
             if (button) {
                 if (expandedButtonId === buttonId) {
-                    // Already expanded, collapse it
+                    // Already expanded, collapse it - don't change selected system
                     hideSubSystems();
+                    return;
                 } else {
                     // Expand this button's sub-systems
                     showSubSystems(categoryId, button);
+
+                    // Check if current system is already one of this button's systems
+                    const allButtonSystems = [button.systemId, ...(button.subSystems || [])];
+                    if (allButtonSystems.includes(dithertron.settings.id)) {
+                        // Already have a system from this group selected, highlight it and don't change
+                        $(`.sub-system-btn[data-system-id="${dithertron.settings.id}"]`).addClass('active');
+                        return;
+                    }
                 }
             }
         }
 
-        // Always select the system
+        // Select the system (only if not collapsing and not already in this group)
         if (systemId && SYSTEM_LOOKUP[systemId]) {
             setTargetSystem(SYSTEM_LOOKUP[systemId]);
         }
