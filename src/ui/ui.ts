@@ -22,6 +22,7 @@ var currentPalette: Uint32Array | null = null;
 var originalPalette: Uint32Array | null = null;
 var paletteModified = false;
 var optimalPaletteCaptured = false; // Track if we've captured the optimal palette from worker
+var paletteLocked = false; // Track if palette is locked (prevents regeneration on crop changes)
 
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
@@ -600,6 +601,12 @@ function resetImage() {
     dithertron.settings.ordered = parseFloat(orderedSlider.value) / 100;
     dithertron.settings.noise = parseFloat(noiseSlider.value);
     dithertron.settings.paletteDiversity = parseFloat(diversitySlider.value) / 200 + 0.75;
+
+    // Use locked/modified palette if available
+    if ((paletteLocked || paletteModified) && currentPalette) {
+        dithertron.settings.pal = currentPalette;
+    }
+
     dithertron.setSettings(dithertron.settings);
     dithertron.restart();
 }
@@ -720,14 +727,17 @@ function updatePaletteSwatches(pal: Uint32Array) {
 
     if (pal && pal.length < 64) {
         // For systems with palette reduction, capture the optimal palette from worker
-        // on first result (before any user modifications)
-        if (!paletteModified && !optimalPaletteCaptured) {
+        // on first result (before any user modifications) and if palette is not locked
+        if (!paletteModified && !optimalPaletteCaptured && !paletteLocked) {
             originalPalette = new Uint32Array(pal);
             currentPalette = new Uint32Array(pal);
             optimalPaletteCaptured = true;
         }
 
-        pal.forEach((col, index) => {
+        // Use locked/modified palette for display if available, otherwise use worker's palette
+        const displayPalette = (paletteLocked || paletteModified) && currentPalette ? currentPalette : pal;
+
+        displayPalette.forEach((col, index) => {
             var rgb = "rgb(" + (col & 0xff) + "," + ((col >> 8) & 0xff) + "," + ((col >> 16) & 0xff) + ")";
             var sq = $('<span class="palette-swatch palette-swatch-clickable">&nbsp;</span>')
                 .css("background-color", rgb)
@@ -735,8 +745,9 @@ function updatePaletteSwatches(pal: Uint32Array) {
             swat.append(sq);
         });
 
-        // Show/hide reset button based on palette modification state
+        // Show/hide buttons based on state
         updateResetButtonVisibility();
+        updateLockButtonVisibility();
     }
 }
 
@@ -745,6 +756,30 @@ function updateResetButtonVisibility() {
         $('#resetPaletteBtn').show();
     } else {
         $('#resetPaletteBtn').hide();
+    }
+}
+
+function updateLockButtonVisibility() {
+    // Show lock button only for systems with palette reduction
+    if (dithertron.settings?.reduce && currentPalette) {
+        $('#lockPaletteBtn').show();
+    } else {
+        $('#lockPaletteBtn').hide();
+    }
+}
+
+function togglePaletteLock() {
+    paletteLocked = !paletteLocked;
+
+    const btn = $('#lockPaletteBtn');
+    if (paletteLocked) {
+        btn.removeClass('btn-outline-secondary').addClass('btn-warning');
+        btn.html('<i class="fa fa-lock"></i> Locked');
+        btn.attr('title', 'Palette is locked - click to unlock and allow regeneration');
+    } else {
+        btn.removeClass('btn-warning').addClass('btn-outline-secondary');
+        btn.html('<i class="fa fa-unlock"></i> Lock Palette');
+        btn.attr('title', 'Lock palette to prevent regeneration when cropping');
     }
 }
 
@@ -772,6 +807,15 @@ function onColorPickerAccept() {
     currentPalette[index] = newColor;
     paletteModified = true;
 
+    // Automatically lock palette when user manually edits a color
+    if (!paletteLocked && dithertron.settings?.reduce) {
+        paletteLocked = true;
+        const btn = $('#lockPaletteBtn');
+        btn.removeClass('btn-outline-secondary').addClass('btn-warning');
+        btn.html('<i class="fa fa-lock"></i> Locked');
+        btn.attr('title', 'Palette is locked - click to unlock and allow regeneration');
+    }
+
     // Hide the picker panel
     panel.hide();
 
@@ -794,6 +838,15 @@ function resetPalette() {
 }
 
 function initializePaletteFromSystem(sys: DithertronSettings) {
+    // Unlock palette when switching systems
+    if (paletteLocked) {
+        paletteLocked = false;
+        const btn = $('#lockPaletteBtn');
+        btn.removeClass('btn-warning').addClass('btn-outline-secondary');
+        btn.html('<i class="fa fa-unlock"></i> Lock Palette');
+        btn.attr('title', 'Lock palette to prevent regeneration when cropping');
+    }
+
     // For systems with reduce, we'll capture the optimal palette from the worker
     // For other systems, use the system palette directly
     if (sys.reduce) {
@@ -1115,13 +1168,25 @@ export function startUI() {
             </div>
         `;
         $('#paletteSwatches').after(colorPickerHtml);
-        $('#colorPickerPanel').after('<button id="resetPaletteBtn" class="btn btn-sm btn-outline-warning mt-1" style="display:none;">Reset Colors</button>');
+        $('#colorPickerPanel').after(`
+            <div class="palette-buttons mt-1" style="display:flex; gap:0.5rem; justify-content:center;">
+                <button id="lockPaletteBtn" class="btn btn-sm btn-outline-secondary" style="display:none;" title="Lock palette to prevent regeneration when cropping">
+                    <i class="fa fa-unlock"></i> Lock Palette
+                </button>
+                <button id="resetPaletteBtn" class="btn btn-sm btn-outline-warning" style="display:none;">
+                    Reset Colors
+                </button>
+            </div>
+        `);
 
         // Palette swatch click handler
         $('#paletteSwatches').on('click', '.palette-swatch-clickable', onSwatchClick);
 
         // Color picker event handlers
         $('#colorPickerAcceptBtn').on('click', onColorPickerAccept);
+
+        // Lock palette button handler
+        $('#lockPaletteBtn').on('click', togglePaletteLock);
 
         // Reset palette button handler
         $('#resetPaletteBtn').on('click', resetPalette);

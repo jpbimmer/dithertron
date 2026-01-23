@@ -202,28 +202,28 @@
 
 #### Stories
 
-##### Story C1: Add Palette Lock Button
-- [ ] Add "Lock Palette" button next to "Reset Colors" button
-- [ ] Button should toggle between locked/unlocked states (visual indicator)
-- [ ] When locked, palette should not regenerate on crop changes
-- [ ] Locked state should persist until manually unlocked
+##### Story C1: Add Palette Lock Button ✓
+- [x] Add "Lock Palette" button next to "Reset Colors" button
+- [x] Button should toggle between locked/unlocked states (visual indicator)
+- [x] When locked, palette should not regenerate on crop changes
+- [x] Locked state should persist until manually unlocked
 
 ---
 
-##### Story C2: Implement Palette Lock Logic
-- [ ] Track palette lock state (`paletteLocked` boolean)
-- [ ] When palette is locked, preserve `currentPalette` across crop/image changes
-- [ ] Modify worker communication to use locked palette instead of generating new one
-- [ ] For systems with palette reduction: send locked palette to worker when set
-- [ ] For systems without palette reduction: lock is not applicable (hide/disable button)
+##### Story C2: Implement Palette Lock Logic ✓
+- [x] Track palette lock state (`paletteLocked` boolean)
+- [x] When palette is locked, preserve `currentPalette` across crop/image changes
+- [x] Use locked palette in settings for dithering instead of generating new one
+- [x] Display locked palette in swatches instead of worker-generated palette
+- [x] For systems without palette reduction: lock button hidden
 
 ---
 
-##### Story C3: Palette Lock UX Refinements
-- [ ] Show visual indicator when palette is locked (icon on button, lock icon near swatches)
-- [ ] Automatically lock palette when user manually edits a color
-- [ ] Unlock palette automatically when switching to a different system
-- [ ] Add tooltip explaining what palette lock does
+##### Story C3: Palette Lock UX Refinements ✓
+- [x] Show visual indicator when palette is locked (button changes to warning/locked state)
+- [x] Automatically lock palette when user manually edits a color
+- [x] Unlock palette automatically when switching to a different system
+- [x] Add tooltip explaining what palette lock does
 - [ ] Consider adding to keyboard shortcuts (e.g., 'L' to toggle lock)
 
 ---
