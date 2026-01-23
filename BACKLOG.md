@@ -2,6 +2,189 @@
 
 ## Epics
 
+### System Selector Refactoring
+
+**Goal:** Redesign the system selector to provide better organization, discoverability, and navigation. Replace the current flat sidebar list with a tabbed, horizontally-oriented button system that supports sub-system expansion and keyboard navigation.
+
+**Reference File:** `SYSTEM_CATEGORIES.md` - Defines which systems belong in each tab (Defaults/Expanded/Non-Standard) and their sub-system relationships.
+
+**Current Problems:**
+- All 86 systems displayed as a single flat scrollable list
+- No logical grouping or categorization
+- Poor discoverability - must scroll or search to find systems
+- Related system variants (e.g., C-64 Multi FLI variants) are scattered
+- Sidebar takes up screen real estate on desktop
+
+**Target Layout:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Convert to:                              │
+│  ┌──────────┬──────────┬─────────┐                              │
+│  │ Defaults │ Expanded │ Non-Std │  ← Tab headers               │
+│  └──────────┴──────────┴─────────┘                              │
+│  ┌─────┐ ┌─────┐ ┌───────┐ ┌────┐ ┌─────┐                       │
+│  │C-64▼│ │C-64 │ │  NES  │ │ GB │ │ ZX ▼│ ...  ← System buttons │
+│  │Multi│ │Hires│ │       │ │    │ │Spec │                       │
+│  └─────┘ └─────┘ └───────┘ └────┘ └─────┘                       │
+│  ┌─────────────────────────────────────┐                        │
+│  │ FLI │ FLI+bug │ L-blank │ L/R-blank │  ← Expanded sub-systems│
+│  └─────────────────────────────────────┘                        │
+│  ┌───────────────┐ ┌───────────────┐                            │
+│  │  Copy Image   │ │ Download PNG  │  ← Action buttons          │
+│  └───────────────┘ └───────────────┘                            │
+├─────────────────────────────────────────────────────────────────┤
+│                     [Rendered Image]                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- Three tabs: Defaults (common platforms), Expanded (retro computing), Non-Standard (specialized formats)
+- Horizontal button layout within each tab
+- Dropdown arrows on buttons with sub-systems (variants)
+- Clicking dropdown expands a sub-system row below
+- Keyboard: Left/Right to navigate buttons, Left/Right within expanded sub-systems
+- Sidebar on right becomes collapsible (expand/collapse toggle)
+- Current sidebar list still functional when expanded
+
+#### Stories - COMPLETED
+
+##### Story A1: Create System Categories Data Structure ✓
+**Description:** Create TypeScript data structures to represent the categorized systems based on `SYSTEM_CATEGORIES.md`
+
+**Acceptance Criteria:**
+- [x] TypeScript types defined for categories and buttons
+- [x] Categories data matches `SYSTEM_CATEGORIES.md`
+- [x] Sub-systems properly linked to parent buttons
+- [x] Data is importable by UI code
+
+---
+
+##### Story A2: Build Tabbed System Selector Component ✓
+**Description:** Create the new horizontal system selector UI with tab navigation
+
+**Acceptance Criteria:**
+- [x] Three tabs visible above rendered image area
+- [x] Clicking tab switches visible content
+- [x] Active tab is visually distinguished
+- [x] Tabs are responsive on mobile
+
+---
+
+##### Story A3: Implement Horizontal System Buttons ✓
+**Description:** Create horizontally-laid-out system buttons within each tab
+
+**Acceptance Criteria:**
+- [x] Buttons laid out horizontally within tab content
+- [x] Buttons wrap to next row if needed
+- [x] Dropdown arrows visible on buttons with sub-systems
+- [x] Active system is highlighted
+- [x] Clicking button selects that system
+
+---
+
+##### Story A4: Implement Sub-System Expansion ✓
+**Description:** Add expandable sub-system rows when clicking dropdown arrows
+
+**Acceptance Criteria:**
+- [x] Clicking dropdown arrow expands sub-system row
+- [x] Sub-systems displayed horizontally in expansion row
+- [x] Clicking again collapses the row
+- [x] Only one expansion open at a time
+- [x] Selecting sub-system highlights both parent and sub-system
+
+---
+
+##### Story A5: Keyboard Navigation for New Selector ✓
+**Description:** Implement Left/Right keyboard navigation through system buttons
+
+**Acceptance Criteria:**
+- [x] Left/Right arrows move selection through buttons
+- [x] Navigation wraps at row ends
+- [x] Sub-system navigation works when expanded
+- [x] Focus indicator visible on keyboard navigation
+- [x] No conflict with existing keyboard shortcuts
+
+---
+
+##### Story A6: Make Sidebar Collapsible ✓
+**Description:** Add expand/collapse toggle for the full system list sidebar on the right
+
+**Acceptance Criteria:**
+- [x] Toggle button visible in sidebar header
+- [x] Clicking toggle collapses/expands sidebar
+- [x] Smooth animation on collapse/expand
+- [x] Both selectors show same active system
+- [x] Sidebar still works with keyboard (Up/Down) when expanded
+
+---
+
+##### Story A7: Synchronize Both Selectors ✓
+**Description:** Ensure the new tabbed selector and sidebar stay synchronized
+
+**Acceptance Criteria:**
+- [x] Selecting in either UI updates the other
+- [x] Correct tab activates when system is in different category
+- [x] Sub-system expansion opens if sub-system selected via sidebar
+- [x] URL reflects current system selection
+
+---
+
+##### Story A8: Mobile Responsive Behavior ✓
+**Description:** Ensure the new system selector works well on mobile devices
+
+**Acceptance Criteria:**
+- [x] Tabs usable on mobile (touch-friendly)
+- [x] Buttons have adequate touch target size
+- [x] Sub-system expansion works on mobile
+- [x] No horizontal overflow on mobile
+
+---
+
+### UI Refinements
+
+**Goal:** Streamline the UI by consolidating controls, reducing visual clutter, and improving layout consistency.
+
+#### Stories
+
+##### Story B1: Consolidate Source Image Controls ✓
+- [x] Make "Select an example" dropdown and "Choose File" input on one line
+- [x] Remove "or upload an image" text
+
+---
+
+##### Story B2: Move Header Elements ✓
+- [x] Move "DITHERTRON 2.0" from center to left side
+- [x] Move PNG download button and Copy button to header (left of Systems button)
+
+---
+
+##### Story B3: Remove Convert To Section ✓
+- [x] Remove the "Convert to:" label and Letterbox button section entirely
+- [x] Move format info text ("304 x 256, 16 out of 256 colors") below rendered image, above color palette
+
+---
+
+##### Story B4: Reorganize Tabbed Selector ✓
+- [x] Move Letterbox button to right side of tab headers (Defaults | Expanded | Defunct | [Letterbox])
+- [x] Rename "Non-Standard" tab to "Defunct"
+
+---
+
+##### Story B5: Simplify Slider Panels ✓
+- [x] Remove "Source Adjustments" and "Dither Settings" header text
+- [x] Move Reset buttons down to be inline with sliders (same row as first slider)
+
+---
+
+#### Implementation Order
+1. Story B4 - Tab reorganization (quick change)
+2. Story B1 - Source controls consolidation
+3. Story B3 - Remove Convert To section
+4. Story B2 - Header reorganization
+5. Story B5 - Slider panel simplification
+
+---
+
 ### Image Area Layout & Alignment
 
 **Goal:** Create a clean, aligned layout where both image areas (source and rendered) are properly sized, aligned with their respective UI controls, and vertically centered in the available viewport space.
@@ -163,6 +346,16 @@ let pixelAspect = sys.scaleX || 1;
 ---
 
 ## Completed
+
+### System Selector Refactoring
+- [x] Create system categories data structure (`SYSTEM_CATEGORIES.md`, `system-categories.ts`)
+- [x] Build tabbed system selector with 3 tabs (Defaults/Expanded/Non-Standard)
+- [x] Implement horizontal system buttons with flexbox layout
+- [x] Add sub-system expansion with dropdown arrows
+- [x] Keyboard navigation (Left/Right for tabs, Up/Down for sidebar)
+- [x] Make sidebar collapsible on desktop (with localStorage persistence)
+- [x] Synchronize tabbed selector and sidebar
+- [x] Mobile responsive behavior
 
 ### Color Picker for Palette Swatches
 - [x] Make swatches clickable with color picker

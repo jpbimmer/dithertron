@@ -166,6 +166,13 @@
             width: 100%;
             margin-top: 0.5rem;
         }
+        .format-info {
+            text-align: center;
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
+            width: 100%;
+        }
         #booksMenu {
             background-color: #666;
             border-radius: 0.5em;
@@ -176,24 +183,33 @@
         #examplesMenu {
             font-size: 0.8em;
         }
+        /* Source controls - dropdown and file input on one line */
+        .source-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .source-controls input[type="file"] {
+            font-size: 0.85rem;
+        }
+        /* Navbar layout - title left, buttons centered */
+        .navbar {
+            display: flex;
+            align-items: center;
+        }
+        .navbar-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
         /* Compact alert styling */
         .column-top .alert,
         .column-bottom .alert {
             padding: 0.5rem 0.75rem;
-        }
-        /* Slider panel header with reset button */
-        .slider-panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.25rem;
-            border-bottom: 1px solid #dee2e6;
-        }
-        .slider-panel-title {
-            font-weight: 500;
-            font-size: 0.85rem;
-            color: #495057;
         }
         /* Letterbox toggle button */
         #letterboxToggle.active {
@@ -226,6 +242,27 @@
             border-color: #0056b3;
         }
 
+        /* Diff method dropdown button */
+        .diff-method-btn {
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .diff-method-btn .fa-caret-down {
+            transition: transform 0.15s ease;
+        }
+        .diff-method-btn.expanded .fa-caret-down {
+            transform: rotate(180deg);
+        }
+        .diff-method-dropdown {
+            display: none;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: rgba(0,0,0,0.05);
+            border-radius: 0.25rem;
+        }
+        .diff-method-dropdown.visible {
+            display: block;
+        }
         /* Dither algorithm grid */
         .dither-btn-group {
             display: flex;
@@ -290,9 +327,54 @@
         @media (min-width: 992px) {
             body.full-screen-container {
                 padding-right: 280px;
+                transition: padding-right 0.3s ease;
+            }
+            body.full-screen-container.sidebar-collapsed {
+                padding-right: 0;
             }
             #systemSelectorToggle {
                 display: none;
+            }
+            /* Sidebar collapse toggle for desktop */
+            .sidebar-collapse-toggle {
+                background: #495057;
+                border: 1px solid #6c757d;
+                color: #fff;
+                padding: 0.25rem 0.5rem;
+                border-radius: 0.25rem;
+                cursor: pointer;
+                font-size: 0.8rem;
+            }
+            .sidebar-collapse-toggle:hover {
+                background: #5a6268;
+            }
+            .system-sidebar {
+                transition: right 0.3s ease, opacity 0.3s ease;
+            }
+            .system-sidebar.collapsed {
+                right: -280px;
+                opacity: 0;
+                pointer-events: none;
+            }
+            /* Show expand button when sidebar is collapsed */
+            .sidebar-expand-btn {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                z-index: 1040;
+                background: #343a40;
+                border: 1px solid #6c757d;
+                color: #fff;
+                padding: 0.5rem;
+                border-radius: 0.25rem;
+                cursor: pointer;
+                display: none;
+            }
+            .sidebar-expand-btn:hover {
+                background: #495057;
+            }
+            body.sidebar-collapsed .sidebar-expand-btn {
+                display: block;
             }
         }
         /* Mobile: hide sidebar, show toggle button */
@@ -432,6 +514,123 @@
                 text-align: center;
             }
         }
+
+        /* Tabbed System Selector */
+        .system-tabs-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+        }
+        .system-tabs-header {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 0.5rem;
+        }
+        .system-tabs-header .ml-auto {
+            margin-left: auto;
+        }
+        .system-tab {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.75rem;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: #6c757d;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .system-tab:hover {
+            color: #495057;
+            background: rgba(0,0,0,0.03);
+        }
+        .system-tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            font-weight: 500;
+        }
+        .system-tab-content {
+            display: none;
+        }
+        .system-tab-content.active {
+            display: block;
+        }
+        .system-buttons-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .system-tab-btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.7rem;
+            background: #495057;
+            border: 1px solid #6c757d;
+            color: #fff;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .system-tab-btn:hover {
+            background: #5a6268;
+        }
+        .system-tab-btn.active {
+            background: #007bff;
+            border-color: #0056b3;
+        }
+        .system-tab-btn .dropdown-arrow {
+            font-size: 0.6rem;
+            transition: transform 0.15s ease;
+        }
+        .system-tab-btn.expanded .dropdown-arrow {
+            transform: rotate(180deg);
+        }
+        .sub-systems-row {
+            display: none;
+            margin-top: 0.25rem;
+            padding: 0.25rem;
+            background: rgba(0,0,0,0.05);
+            border-radius: 0.25rem;
+        }
+        .sub-systems-row.visible {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+        }
+        .sub-system-btn {
+            padding: 0.2rem 0.4rem;
+            font-size: 0.65rem;
+            background: #6c757d;
+            border: 1px solid #5a6268;
+            color: #fff;
+            border-radius: 0.2rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .sub-system-btn:hover {
+            background: #5a6268;
+        }
+        .sub-system-btn.active {
+            background: #0069d9;
+            border-color: #0056b3;
+        }
+        @media (max-width: 767px) {
+            .system-tabs-container {
+                margin-bottom: 0.25rem;
+            }
+            .system-tab {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.7rem;
+            }
+            .system-tab-btn {
+                font-size: 0.65rem;
+                padding: 0.2rem 0.4rem;
+            }
+        }
     </style>
 </head>
 <!-- body -->
@@ -439,8 +638,17 @@
 <body class="full-screen-container">
     <div class="container-xl">
 
-        <nav class="navbar justify-content-center">
+        <nav class="navbar">
             <a class="navbar-brand text-dark" href="#">DITHERTRON 2.0</a>
+            <div class="navbar-actions ml-auto">
+                <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
+                    title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
+                <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
+                    title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
+                <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
+                    <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
+                </button>
+            </div>
         </nav>
 
         <!-- Main two-column layout -->
@@ -449,48 +657,32 @@
             <div class="layout-column">
                 <div class="column-top">
                     <div class="alert alert-info">
-                        <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            Select an example
-                        </a> or upload an image.
-                        <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
-                        </div>
-                        <div class="mt-2">
+                        <div class="source-controls">
+                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                Select an example
+                            </a>
+                            <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
+                            </div>
                             <input type="file" id="imageUpload">
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="alert alert-info">
-                    Convert to:
-                    <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
-                        <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
-                    </button>
-                    <button id="letterboxToggle" type="button" class="btn btn-outline-secondary btn-sm ml-2" title="Toggle letterbox mode (fit image without cropping)">
-                        <i class="fa fa-arrows-alt"></i> Letterbox
-                    </button>
-                    <br>
-                    <small><span id="targetFormatInfo"></span></small>
-                    <br>
-                    <div>
-                        <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
-                            title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
-                        <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
-                            title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
+                <div class="column-image">
+                    <div class="image-container">
+                        <img class="crop" id="srcimage">
                     </div>
                 </div>
                 <div class="column-bottom">
                     <div class="alert alert-secondary">
-                        <div class="slider-panel-header">
-                            <span class="slider-panel-title">Source Adjustments</span>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="resetSourceSliders">Reset</button>
-                        </div>
                         <div class="row align-items-center" id="brightSection">
                             <label for="brightSlider" class="col-sm-3 col-form-label">Bright:</label>
                             <div class="col-sm-5 col-md-5">
                                 <input type="range" id="brightSlider" data-provide="slider" data-slider-min="0"
                                     data-slider-max="100" data-slider-value="50" />
+                            </div>
+                            <div class="col-sm-4 col-md-4 text-right">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="resetSourceSliders">Reset</button>
                             </div>
                         </div>
                         <div class="row align-items-center" id="contrastSection">
@@ -521,42 +713,60 @@
             <!-- Right Column: Rendered Image -->
             <div class="layout-column">
                 <div class="column-top">
-                    <div class="alert alert-info">
-                        Convert to:
-                        <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
-                            <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
-                        </button>
-                        <button id="letterboxToggle" type="button" class="btn btn-outline-secondary btn-sm ml-2" title="Toggle letterbox mode (fit image without cropping)">
-                            <i class="fa fa-arrows-alt"></i> Letterbox
-                        </button>
-                        <br>
-                        <small><span id="targetFormatInfo"></span></small>
-                        <div class="mt-1">
-                            <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
-                                title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
-                            <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
-                                title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
+                    <!-- Tabbed System Selector -->
+                    <div class="system-tabs-container" id="systemTabsContainer">
+                        <div class="system-tabs-header">
+                            <button type="button" class="system-tab active" data-tab="defaults">Defaults</button>
+                            <button type="button" class="system-tab" data-tab="expanded">Expanded</button>
+                            <button type="button" class="system-tab" data-tab="defunct">Defunct</button>
+                            <button id="letterboxToggle" type="button" class="btn btn-outline-secondary btn-sm ml-auto" title="Toggle letterbox mode (fit image without cropping)">
+                                <i class="fa fa-arrows-alt"></i> Letterbox
+                            </button>
+                        </div>
+                        <div class="system-tab-content active" data-tab-content="defaults">
+                            <div class="system-buttons-row" id="defaultsButtons">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="sub-systems-row" id="defaultsSubSystems">
+                                <!-- Sub-systems populated by JS -->
+                            </div>
+                        </div>
+                        <div class="system-tab-content" data-tab-content="expanded">
+                            <div class="system-buttons-row" id="expandedButtons">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="sub-systems-row" id="expandedSubSystems">
+                                <!-- Sub-systems populated by JS -->
+                            </div>
+                        </div>
+                        <div class="system-tab-content" data-tab-content="defunct">
+                            <div class="system-buttons-row" id="defunctButtons">
+                                <!-- Populated by JS -->
+                            </div>
+                            <div class="sub-systems-row" id="defunctSubSystems">
+                                <!-- Sub-systems populated by JS -->
+                            </div>
                         </div>
                     </div>
                 </div>
                 <div class="column-image">
                     <div class="image-container rendered-container">
                         <canvas id="destcanvas" class="rendered-canvas"></canvas>
+                        <div id="targetFormatInfo" class="format-info"></div>
                         <div id="paletteSwatches" class="palette-swatches-container">
                         </div>
                     </div>
                 </div>
                 <div class="column-bottom">
                     <div class="alert alert-secondary">
-                        <div class="slider-panel-header">
-                            <span class="slider-panel-title">Dither Settings</span>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="resetDitherSliders">Reset</button>
-                        </div>
                         <div class="row align-items-center" id="diversitySection">
                             <label for="diversitySlider" class="col-sm-3 col-form-label">Diversity:</label>
                             <div class="col-sm-5 col-md-5">
                                 <input type="range" id="diversitySlider" data-provide="slider" data-slider-min="0"
                                     data-slider-max="100" data-slider-value="60" />
+                            </div>
+                            <div class="col-sm-4 col-md-4 text-right">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="resetDitherSliders">Reset</button>
                             </div>
                         </div>
                         <div class="row align-items-center" id="orderedSection">
@@ -579,12 +789,15 @@
                                 <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
                                     data-slider-max="100" data-slider-value="75" />
                             </div>
+                            <div class="col-sm-4 col-md-4 text-right">
+                                <button type="button" class="btn btn-sm btn-outline-secondary diff-method-btn" id="diffMethodToggle">
+                                    <span id="diffMethodLabel">Floyd-Steinberg</span> <i class="fa fa-caret-down"></i>
+                                </button>
+                            </div>
                         </div>
-                        <div class="row mt-2" id="ditherButtonSection">
-                            <div class="col-12">
-                                <div class="dither-btn-group" id="ditherButtonGroup" role="group">
-                                    <!-- Dither buttons populated by JS -->
-                                </div>
+                        <div class="diff-method-dropdown" id="diffMethodDropdown">
+                            <div class="dither-btn-group" id="ditherButtonGroup" role="group">
+                                <!-- Dither buttons populated by JS -->
                             </div>
                         </div>
                     </div>
@@ -636,9 +849,15 @@
 
     <!-- System selector sidebar -->
     <div class="system-sidebar-backdrop" id="systemSidebarBackdrop"></div>
+    <button class="sidebar-expand-btn" id="sidebarExpandBtn" title="Show system sidebar">
+        <i class="fa fa-list"></i> Systems
+    </button>
     <div class="system-sidebar" id="systemSidebar">
         <div class="system-sidebar-header">
             <h5>Select System</h5>
+            <button class="sidebar-collapse-toggle" id="sidebarCollapseToggle" title="Hide sidebar">
+                <i class="fa fa-chevron-right"></i>
+            </button>
             <button class="system-sidebar-close" id="systemSidebarClose">&times;</button>
         </div>
         <input type="text" id="systemSearch" placeholder="Search systems...">

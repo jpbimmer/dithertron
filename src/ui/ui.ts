@@ -1,5 +1,6 @@
 import { SYSTEMS, SYSTEM_LOOKUP } from "../settings/systems";
 import { DitherSetting, DithertronSettings, PixelsAvailableMessage } from "../common/types";
+import { SYSTEM_CATEGORIES, findSystemCategory, SystemButton, SystemCategory } from "../settings/system-categories";
 
 import * as exportfuncs from "../export/exportfuncs";
 import * as fileviewers from "../export/fileviewers";
@@ -138,6 +139,203 @@ function populateSystemSidebar() {
     });
 }
 
+// Track currently expanded button in tabbed selector
+var expandedButtonId: string | null = null;
+var activeTabId: string = 'defaults';
+
+function populateSystemTabs() {
+    SYSTEM_CATEGORIES.forEach(category => {
+        const containerId = category.id + 'Buttons';
+        const container = $(`#${containerId}`);
+        container.empty();
+
+        category.systems.forEach(button => {
+            const btn = $('<button type="button" class="system-tab-btn"></button>')
+                .text(button.label)
+                .attr('data-button-id', button.id)
+                .attr('data-system-id', button.systemId)
+                .attr('data-category', category.id);
+
+            if (button.subSystems && button.subSystems.length > 0) {
+                btn.append(' <span class="dropdown-arrow"><i class="fa fa-caret-down"></i></span>');
+                btn.attr('data-has-subsystems', 'true');
+            }
+
+            container.append(btn);
+        });
+    });
+}
+
+function showSubSystems(categoryId: string, button: SystemButton) {
+    // Hide all sub-system rows
+    $('.sub-systems-row').removeClass('visible');
+
+    // Remove expanded state from all buttons
+    $('.system-tab-btn').removeClass('expanded');
+
+    const subSystemsRowId = categoryId + 'SubSystems';
+    const row = $(`#${subSystemsRowId}`);
+    row.empty();
+
+    if (button.subSystems && button.subSystems.length > 0) {
+        button.subSystems.forEach(subId => {
+            const sys = SYSTEM_LOOKUP[subId];
+            if (sys) {
+                const subBtn = $('<button type="button" class="sub-system-btn"></button>')
+                    .text(sys.name)
+                    .attr('data-system-id', subId)
+                    .attr('data-parent-button-id', button.id);
+                row.append(subBtn);
+            }
+        });
+        row.addClass('visible');
+        $(`.system-tab-btn[data-button-id="${button.id}"]`).addClass('expanded');
+        expandedButtonId = button.id;
+    }
+}
+
+function hideSubSystems() {
+    $('.sub-systems-row').removeClass('visible');
+    $('.system-tab-btn').removeClass('expanded');
+    expandedButtonId = null;
+}
+
+function switchTab(tabId: string) {
+    activeTabId = tabId;
+    // Update tab buttons
+    $('.system-tab').removeClass('active');
+    $(`.system-tab[data-tab="${tabId}"]`).addClass('active');
+
+    // Update tab content
+    $('.system-tab-content').removeClass('active');
+    $(`.system-tab-content[data-tab-content="${tabId}"]`).addClass('active');
+
+    // Hide any expanded sub-systems
+    hideSubSystems();
+}
+
+function updateTabbedSelectorDisplay(sys: DithertronSettings) {
+    // Remove active class from all buttons
+    $('.system-tab-btn').removeClass('active');
+    $('.sub-system-btn').removeClass('active');
+
+    // Find which category this system belongs to
+    const found = findSystemCategory(sys.id);
+    if (!found) return;
+
+    // Switch to the correct tab if needed
+    if (found.category.id !== activeTabId) {
+        switchTab(found.category.id);
+    }
+
+    if (found.isSubSystem && found.parentButton) {
+        // This is a sub-system, highlight parent and show sub-systems
+        $(`.system-tab-btn[data-button-id="${found.parentButton.id}"]`).addClass('active');
+
+        // Find the full parent button data
+        const parentBtn = found.category.systems.find(b => b.id === found.parentButton!.id);
+        if (parentBtn) {
+            showSubSystems(found.category.id, parentBtn);
+        }
+
+        // Highlight the sub-system button
+        $(`.sub-system-btn[data-system-id="${sys.id}"]`).addClass('active');
+    } else {
+        // This is a main system button
+        $(`.system-tab-btn[data-system-id="${sys.id}"]`).addClass('active');
+    }
+}
+
+// Get list of system IDs in the active tab for keyboard navigation
+function getActiveTabSystemIds(): string[] {
+    const category = SYSTEM_CATEGORIES.find(c => c.id === activeTabId);
+    if (!category) return [];
+
+    // If sub-systems are expanded, return sub-system IDs
+    if (expandedButtonId) {
+        const button = category.systems.find(b => b.id === expandedButtonId);
+        if (button?.subSystems) {
+            return button.subSystems;
+        }
+    }
+
+    // Otherwise return main button system IDs
+    return category.systems.map(b => b.systemId);
+}
+
+// Navigate within tabbed selector (Left/Right)
+function selectTabbedSystemByOffset(offset: number) {
+    const systemIds = getActiveTabSystemIds();
+    if (systemIds.length === 0) return;
+
+    const currentId = dithertron.settings.id;
+    let currentIndex = systemIds.indexOf(currentId);
+
+    // If current system not in this list, start at beginning (or end for negative offset)
+    if (currentIndex < 0) {
+        currentIndex = offset > 0 ? -1 : systemIds.length;
+    }
+
+    let newIndex = currentIndex + offset;
+
+    // Wrap around
+    if (newIndex < 0) newIndex = systemIds.length - 1;
+    if (newIndex >= systemIds.length) newIndex = 0;
+
+    const newId = systemIds[newIndex];
+    if (SYSTEM_LOOKUP[newId]) {
+        setTargetSystem(SYSTEM_LOOKUP[newId]);
+    }
+}
+
+function setupTabbedSelectorEvents() {
+    // Tab switching
+    $(document).on('click', '.system-tab', function() {
+        const tabId = $(this).attr('data-tab');
+        if (tabId) {
+            switchTab(tabId);
+        }
+    });
+
+    // Main system button clicks
+    $(document).on('click', '.system-tab-btn', function(e) {
+        const buttonId = $(this).attr('data-button-id');
+        const systemId = $(this).attr('data-system-id');
+        const hasSubsystems = $(this).attr('data-has-subsystems') === 'true';
+        const categoryId = $(this).attr('data-category');
+
+        if (hasSubsystems && categoryId) {
+            // Find the button data
+            const category = SYSTEM_CATEGORIES.find(c => c.id === categoryId);
+            const button = category?.systems.find(b => b.id === buttonId);
+
+            if (button) {
+                if (expandedButtonId === buttonId) {
+                    // Already expanded, collapse it
+                    hideSubSystems();
+                } else {
+                    // Expand this button's sub-systems
+                    showSubSystems(categoryId, button);
+                }
+            }
+        }
+
+        // Always select the system
+        if (systemId && SYSTEM_LOOKUP[systemId]) {
+            setTargetSystem(SYSTEM_LOOKUP[systemId]);
+        }
+    });
+
+    // Sub-system button clicks
+    $(document).on('click', '.sub-system-btn', function(e) {
+        e.stopPropagation();
+        const systemId = $(this).attr('data-system-id');
+        if (systemId && SYSTEM_LOOKUP[systemId]) {
+            setTargetSystem(SYSTEM_LOOKUP[systemId]);
+        }
+    });
+}
+
 function toggleSystemSidebar(open: boolean) {
     // Only toggle on mobile (sidebar is always visible on desktop)
     const isMobile = window.innerWidth < 992;
@@ -151,6 +349,41 @@ function toggleSystemSidebar(open: boolean) {
         $('#systemSidebar').removeClass('open');
         $('#systemSidebarBackdrop').removeClass('open');
         document.body.style.overflow = '';
+    }
+}
+
+// Sidebar collapse/expand for desktop
+var sidebarCollapsed = false;
+
+function collapseSidebar() {
+    sidebarCollapsed = true;
+    $('#systemSidebar').addClass('collapsed');
+    $('body').addClass('sidebar-collapsed');
+    localStorage.setItem('sidebarCollapsed', 'true');
+}
+
+function expandSidebar() {
+    sidebarCollapsed = false;
+    $('#systemSidebar').removeClass('collapsed');
+    $('body').removeClass('sidebar-collapsed');
+    localStorage.setItem('sidebarCollapsed', 'false');
+}
+
+function toggleSidebarCollapse() {
+    if (sidebarCollapsed) {
+        expandSidebar();
+    } else {
+        collapseSidebar();
+    }
+}
+
+function initSidebarCollapseState() {
+    // Only apply on desktop
+    if (window.innerWidth < 992) return;
+
+    const saved = localStorage.getItem('sidebarCollapsed');
+    if (saved === 'true') {
+        collapseSidebar();
     }
 }
 
@@ -179,6 +412,8 @@ function updateCurrentSystemDisplay(sys: DithertronSettings) {
     // Update active state in sidebar
     $('.system-btn').removeClass('active');
     $(`.system-btn[data-system-id="${sys.id}"]`).addClass('active');
+    // Update tabbed selector display
+    updateTabbedSelectorDisplay(sys);
 }
 
 function toggleLetterboxMode() {
@@ -217,6 +452,24 @@ function scrollSystemIntoView(sysId: string) {
     if (btn.length) {
         btn[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+}
+
+// Navigate dither methods by offset (for left/right arrow key navigation)
+function selectDitherMethodByOffset(offset: number) {
+    const buttons = $('.dither-btn');
+    if (buttons.length === 0) return;
+
+    const activeBtn = $('.dither-btn.active');
+    let currentIndex = activeBtn.length > 0 ? buttons.index(activeBtn) : -1;
+
+    let newIndex = currentIndex + offset;
+
+    // Wrap around
+    if (newIndex < 0) newIndex = buttons.length - 1;
+    if (newIndex >= buttons.length) newIndex = 0;
+
+    // Trigger click on the new button
+    $(buttons[newIndex]).trigger('click');
 }
 
 //
@@ -748,6 +1001,8 @@ export function startUI() {
         populateDitherButtons();
         populateErrorFuncButtons();
         populateSystemSidebar();
+        populateSystemTabs();
+        setupTabbedSelectorEvents();
         buildSystemIdList();
 
         dithertron.pixelsAvailable = (msg) => {
@@ -788,16 +1043,29 @@ export function startUI() {
             resetImage();
         });
 
+        // Diff method dropdown toggle
+        $('#diffMethodToggle').on('click', function() {
+            $(this).toggleClass('expanded');
+            $('#diffMethodDropdown').toggleClass('visible');
+        });
+
         // Dither buttons
         $('#ditherButtonGroup').on('click', '.dither-btn', function() {
             $('.dither-btn').removeClass('active');
             $(this).addClass('active');
+            // Update the dropdown label with selected method
+            $('#diffMethodLabel').text($(this).text());
             resetImage();
         });
 
         // System sidebar toggle
         $('#systemSelectorToggle').on('click', () => toggleSystemSidebar(true));
         $('#systemSidebarBackdrop, #systemSidebarClose').on('click', () => toggleSystemSidebar(false));
+
+        // Sidebar collapse/expand for desktop
+        $('#sidebarCollapseToggle').on('click', () => collapseSidebar());
+        $('#sidebarExpandBtn').on('click', () => expandSidebar());
+        initSidebarCollapseState();
 
         // System search
         $('#systemSearch').on('input', function() {
@@ -837,7 +1105,7 @@ export function startUI() {
         // Reset palette button handler
         $('#resetPaletteBtn').on('click', resetPalette);
 
-        // Keyboard navigation for system selection
+        // Keyboard navigation for system selection and diff method
         $(document).on('keydown', (e) => {
             // Only handle if not focused on an input
             if ($(e.target).is('input, textarea')) return;
@@ -848,6 +1116,22 @@ export function startUI() {
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 selectSystemByOffset(1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                // If diff method dropdown is open, navigate within it
+                if ($('#diffMethodDropdown').hasClass('visible')) {
+                    selectDitherMethodByOffset(-1);
+                } else {
+                    selectTabbedSystemByOffset(-1);
+                }
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                // If diff method dropdown is open, navigate within it
+                if ($('#diffMethodDropdown').hasClass('visible')) {
+                    selectDitherMethodByOffset(1);
+                } else {
+                    selectTabbedSystemByOffset(1);
+                }
             }
         });
 
