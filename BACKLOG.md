@@ -228,6 +228,187 @@
 
 ---
 
+### Aspect Ratio Matching (Replace Letterbox)
+
+**Goal:** Match the rendered image aspect ratio 1:1 with the source image by expanding the system's native canvas dimensions. This replaces letterbox mode and is designed for visual preview/PNG export only (not hardware output).
+
+**Current Behavior:**
+- Each system has a fixed native resolution (e.g., 320x200 for CGA, 256x240 for NES)
+- The cropper forces the source image to match the system's aspect ratio
+- Users must crop their source to fit the target system's aspect ratio
+- Letterbox mode fits the image without cropping but adds black bars
+
+**New Behavior:**
+- The rendered canvas expands to match the source image's natural aspect ratio
+- Expansion is achieved by tiling/repeating the native resolution (adding rows or columns)
+- Native dimensions are never shrunk, only expanded
+- Dithering happens at the expanded resolution
+- The final output maintains the source image's composition without cropping or letterboxing
+
+**Example:**
+```
+System: CGA 320x200 (1.6:1 aspect ratio)
+Source: 1600x1200 photo (4:3 = 1.33:1 aspect ratio)
+
+Source is taller than native (1.33 < 1.6), so we expand height:
+- Keep width at 320
+- Calculate height: 320 / 1.33 = 240
+- Render at 320x240 (matching source's 4:3 aspect)
+- Dithering uses same math, just more scanlines
+```
+
+**Technical Considerations:**
+- Block-based systems (ZX Spectrum 8x8, C64 4x8): Expanded dimensions should be multiples of block size
+- Systems with `scaleX` (non-square pixels): Account for pixel aspect ratio in calculations
+- The cropper no longer forces aspect ratio - it crops within the source's natural ratio
+- Settings like `width`/`height` become minimum values, not fixed values
+
+**Replaces:** Letterbox mode toggle button
+
+#### Stories
+
+##### Story D1: Calculate Expanded Canvas Dimensions
+- [ ] Create function to calculate expanded dimensions from source aspect ratio + system native size
+- [ ] Ensure expanded dimensions are multiples of system block size (if applicable)
+- [ ] Account for `scaleX` (pixel aspect ratio) in calculations
+- [ ] Always expand (never shrink) - take max of native and calculated dimension
+- [ ] Write unit tests for dimension calculations
+
+**Acceptance Criteria:**
+- Given source 4:3 and system 320x200, output is 320x240
+- Given source 16:9 and system 320x200, output is 356x200 (rounded to block boundary)
+- Given source 1:1 and system 320x200, output is 320x320
+- Block-based systems round up to valid block boundaries
+
+---
+
+##### Story D2: Update Cropper to Use Source Aspect Ratio
+- [ ] Remove forced aspect ratio constraint from cropper initialization
+- [ ] Allow free-form cropping within the source image
+- [ ] Cropper still respects minimum dimensions based on system native size
+- [ ] Update crop event handler to recalculate canvas dimensions on crop change
+
+**Acceptance Criteria:**
+- Cropper no longer forces system aspect ratio
+- User can crop any region of source image
+- Changing crop area triggers canvas dimension recalculation
+
+---
+
+##### Story D3: Modify Resize Canvas to Support Dynamic Dimensions
+- [ ] Update `resizeCanvas` to use calculated dimensions instead of fixed system size
+- [ ] Ensure resize canvas dimensions match the expanded target
+- [ ] Update `convertImage()` to use dynamic dimensions
+- [ ] Verify source image is properly scaled to fill expanded canvas
+
+**Acceptance Criteria:**
+- Resize canvas dimensions match calculated expanded size
+- Source image fills entire canvas (no letterboxing)
+- Image is not distorted (maintains source aspect ratio)
+
+---
+
+##### Story D4: Update Dithering to Work at Expanded Resolution
+- [ ] Pass expanded dimensions to dithertron settings
+- [ ] Verify dithering math works correctly at non-native resolutions
+- [ ] Test block-based systems render correctly with expanded dimensions
+- [ ] Ensure palette generation considers full expanded image
+
+**Acceptance Criteria:**
+- Dithering produces correct output at expanded resolutions
+- Block constraints are maintained (no partial blocks at edges)
+- Palette reduction considers entire expanded image
+
+---
+
+##### Story D5: Update Rendered Canvas Display
+- [ ] Rendered canvas displays at expanded dimensions
+- [ ] Canvas maintains correct aspect ratio in display
+- [ ] Format info text shows expanded dimensions (e.g., "320 x 240" instead of "320 x 200")
+- [ ] PNG download exports at expanded resolution
+
+**Acceptance Criteria:**
+- Rendered image matches source aspect ratio visually
+- PNG export is at full expanded resolution
+- Format info accurately reflects expanded dimensions
+
+---
+
+##### Story D6: Remove Letterbox Mode
+- [ ] Remove letterbox toggle button from UI
+- [ ] Remove letterbox-related code from cropper initialization
+- [ ] Remove letterbox state tracking
+- [ ] Clean up any letterbox CSS/styles
+
+**Acceptance Criteria:**
+- Letterbox button no longer appears
+- No letterbox-related code remains
+- New aspect matching is the default (and only) behavior
+
+---
+
+##### Story D7: Make Crop Tool Optional (Off by Default)
+- [ ] Disable cropper by default - source image displays without crop handles
+- [ ] Add "Crop" toggle button to source image controls (near file input)
+- [ ] When crop is disabled: use full source image, no resize handles shown
+- [ ] When crop is enabled: show cropper with drag/resize handles
+- [ ] Persist crop state when toggling (re-enable shows previous crop area)
+- [ ] Update UI to clearly indicate crop mode status
+
+**Acceptance Criteria:**
+- New images load without crop tool active
+- Toggle button enables/disables crop handles
+- Full source image is used when crop is disabled
+- Crop area is preserved when toggling on/off
+
+---
+
+##### Story D8: Comprehensive Testing Suite
+- [ ] Add unit tests for dimension calculation function (Story D1)
+- [ ] Add unit tests for block boundary rounding
+- [ ] Add integration tests for cropper behavior (enabled/disabled states)
+- [ ] Test all existing systems still produce valid output
+- [ ] Test palette reduction works correctly at expanded resolutions
+- [ ] Test PNG export at expanded dimensions
+- [ ] Test slider adjustments (brightness, contrast, etc.) work at expanded size
+
+**Acceptance Criteria:**
+- All new dimension calculation logic has unit test coverage
+- Existing dithering tests pass with aspect ratio changes
+- No regressions in current functionality
+
+---
+
+##### Story D9: Handle Edge Cases and System Variations
+- [ ] Test with systems that have extreme aspect ratios
+- [ ] Test with systems that have large block sizes (STIC, VCS)
+- [ ] Test with systems that have `scaleX` != 1 (non-square pixels)
+- [ ] Test with very wide and very tall source images
+- [ ] Add reasonable limits to prevent excessive canvas expansion
+- [ ] Test crop toggle works correctly with all system types
+- [ ] Test switching systems while crop is disabled/enabled
+
+**Acceptance Criteria:**
+- All system types produce valid output
+- No crashes or rendering errors with extreme aspect ratios
+- Canvas expansion has reasonable upper bounds
+- Crop toggle works consistently across all systems
+
+---
+
+#### Implementation Order
+1. Story D1 - Dimension calculation (foundation)
+2. Story D7 - Make crop tool optional (enables simpler default flow)
+3. Story D2 - Cropper changes for source aspect ratio
+4. Story D3 - Resize canvas changes
+5. Story D4 - Dithering verification
+6. Story D5 - Display updates
+7. Story D6 - Remove letterbox
+8. Story D8 - Testing suite
+9. Story D9 - Edge cases and testing
+
+---
+
 ### Image Area Layout & Alignment
 
 **Goal:** Create a clean, aligned layout where both image areas (source and rendered) are properly sized, aligned with their respective UI controls, and vertically centered in the available viewport space.
