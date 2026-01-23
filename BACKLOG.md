@@ -185,6 +185,49 @@
 
 ---
 
+### Palette Locking Feature
+
+**Goal:** Allow users to lock the color palette and adjust the crop zone without automatically regenerating the palette.
+
+**Current Problem:**
+- For systems with palette reduction (e.g., Amiga, CPC), the optimal palette is auto-generated from the cropped image
+- Each time the user adjusts the crop, a new palette is generated
+- No way to preserve a preferred palette across crop changes
+- Users may want to lock in a palette they like and then explore different crop compositions with that same palette
+
+**Use Cases:**
+- Lock a palette that works well for the overall image, then adjust cropping for composition
+- Compare how different parts of an image look with the same locked palette
+- Maintain color consistency across multiple crops of the same source image
+
+#### Stories
+
+##### Story C1: Add Palette Lock Button
+- [ ] Add "Lock Palette" button next to "Reset Colors" button
+- [ ] Button should toggle between locked/unlocked states (visual indicator)
+- [ ] When locked, palette should not regenerate on crop changes
+- [ ] Locked state should persist until manually unlocked
+
+---
+
+##### Story C2: Implement Palette Lock Logic
+- [ ] Track palette lock state (`paletteLocked` boolean)
+- [ ] When palette is locked, preserve `currentPalette` across crop/image changes
+- [ ] Modify worker communication to use locked palette instead of generating new one
+- [ ] For systems with palette reduction: send locked palette to worker when set
+- [ ] For systems without palette reduction: lock is not applicable (hide/disable button)
+
+---
+
+##### Story C3: Palette Lock UX Refinements
+- [ ] Show visual indicator when palette is locked (icon on button, lock icon near swatches)
+- [ ] Automatically lock palette when user manually edits a color
+- [ ] Unlock palette automatically when switching to a different system
+- [ ] Add tooltip explaining what palette lock does
+- [ ] Consider adding to keyboard shortcuts (e.g., 'L' to toggle lock)
+
+---
+
 ### Image Area Layout & Alignment
 
 **Goal:** Create a clean, aligned layout where both image areas (source and rendered) are properly sized, aligned with their respective UI controls, and vertically centered in the available viewport space.
@@ -222,7 +265,7 @@
 
 ## Stories
 
-### Story 1: Restructure HTML for Flexbox Layout
+### Story 1: Restructure HTML for Flexbox Layout ✓
 **Description:** Reorganize HTML structure to support proper flexbox-based vertical layout
 **Tasks:**
 - Wrap each column (left/right) in a flex container that spans from top UI to bottom sliders
@@ -230,13 +273,13 @@
 - Ensure the image containers can calculate available height
 
 **Acceptance Criteria:**
-- [ ] Each side has a vertical flex container
-- [ ] Image areas are in dedicated containers
-- [ ] Structure supports dynamic height calculation
+- [x] Each side has a vertical flex container
+- [x] Image areas are in dedicated containers
+- [x] Structure supports dynamic height calculation
 
 ---
 
-### Story 2: Calculate Available Image Area Height
+### Story 2: Calculate Available Image Area Height ✓
 **Description:** Dynamically size the image area based on viewport minus fixed elements
 **Tasks:**
 - Calculate: viewport height - header - top UI - bottom sliders - footer - padding
@@ -244,13 +287,13 @@
 - Handle window resize events
 
 **Acceptance Criteria:**
-- [ ] Image area height adjusts to viewport
-- [ ] Resizing window recalculates layout
-- [ ] No overflow or scrolling within main content
+- [x] Image area height adjusts to viewport (via flexbox)
+- [x] Resizing window recalculates layout (automatic with flexbox)
+- [x] No overflow or scrolling within main content
 
 ---
 
-### Story 3: Align Source Image (Cropper) Column
+### Story 3: Align Source Image (Cropper) Column ✓
 **Description:** Make the source image/cropper fill its column width and center vertically
 **Tasks:**
 - Remove any hardcoded widths from cropper container
@@ -259,13 +302,13 @@
 - Ensure cropper respects the calculated height
 
 **Acceptance Criteria:**
-- [ ] Source image aligns with blue UI panel edges above
-- [ ] Source image aligns with gray slider panel edges below
-- [ ] Cropper is vertically centered when smaller than available space
+- [x] Source image aligns with UI panel edges (padding: 0 0.75rem on .column-image)
+- [x] Source image aligns with gray slider panel edges below
+- [x] Cropper is vertically centered (align-items: center)
 
 ---
 
-### Story 4: Align Rendered Image (Canvas) Column
+### Story 4: Align Rendered Image (Canvas) Column ✓
 **Description:** Make the rendered canvas fill its column width while maintaining aspect ratio
 **Tasks:**
 - Remove `width: 85%` from `.emuvideo` class
@@ -275,15 +318,15 @@
 - Vertically center canvas + swatches as a unit
 
 **Acceptance Criteria:**
-- [ ] Rendered image aligns with blue UI panel edges above
-- [ ] Rendered image aligns with gray slider panel edges below
-- [ ] Canvas maintains correct aspect ratio
-- [ ] Palette swatches stay with the canvas
-- [ ] Content is vertically centered
+- [x] Rendered image aligns with UI panel edges (padding on .column-image)
+- [x] Rendered image aligns with slider panel edges below
+- [x] Canvas maintains correct aspect ratio (via JS aspectRatio property)
+- [x] Palette swatches stay with the canvas (.rendered-container)
+- [x] Content is vertically centered (align-items: center)
 
 ---
 
-### Story 5: Add Consistent Gutter Between Columns
+### Story 5: Add Consistent Gutter Between Columns ✓
 **Description:** Create a clean white gap between source and rendered image areas
 **Tasks:**
 - Add consistent padding/gap between the two columns
@@ -291,13 +334,13 @@
 - Gutter should run from top UI to bottom sliders
 
 **Acceptance Criteria:**
-- [ ] Visible white gutter between image areas
-- [ ] Gutter width is consistent (e.g., 1rem or 16px)
-- [ ] Gutter extends full height of image area
+- [x] Visible white gutter between image areas (gap: 1rem)
+- [x] Gutter width is consistent
+- [x] Gutter extends full height of image area
 
 ---
 
-### Story 6: Handle Responsive/Mobile Layout
+### Story 6: Handle Responsive/Mobile Layout ✓
 **Description:** Ensure the layout works on smaller screens
 **Tasks:**
 - Stack columns vertically on mobile
@@ -305,9 +348,9 @@
 - Test on various viewport sizes
 
 **Acceptance Criteria:**
-- [ ] Layout stacks properly on mobile
-- [ ] Images remain properly sized on small screens
-- [ ] No horizontal scrolling on mobile
+- [x] Layout stacks properly on mobile (flex-direction: column @767px)
+- [x] Images remain properly sized on small screens (min-height: 30vh)
+- [x] No horizontal scrolling on mobile
 
 ---
 
