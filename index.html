@@ -160,19 +160,32 @@
             height: auto;
             background: #000;
         }
-        .palette-swatches-container {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            width: 100%;
-            margin-top: 0.5rem;
-        }
         .format-info {
             text-align: center;
             font-size: 0.8rem;
             color: #6c757d;
-            margin-top: 0.25rem;
+            margin-bottom: 0.5rem;
             width: 100%;
+        }
+        .palette-area {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        .palette-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex-shrink: 0;
+        }
+        .palette-swatches-container {
+            display: flex;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            flex: 1;
         }
         #booksMenu {
             background-color: #666;
@@ -752,9 +765,11 @@
                 </div>
                 <div class="column-image">
                     <div class="image-container rendered-container">
-                        <canvas id="destcanvas" class="rendered-canvas"></canvas>
                         <div id="targetFormatInfo" class="format-info"></div>
-                        <div id="paletteSwatches" class="palette-swatches-container">
+                        <canvas id="destcanvas" class="rendered-canvas"></canvas>
+                        <div class="palette-area">
+                            <div id="paletteControls" class="palette-controls"></div>
+                            <div id="paletteSwatches" class="palette-swatches-container"></div>
                         </div>
                     </div>
                 </div>

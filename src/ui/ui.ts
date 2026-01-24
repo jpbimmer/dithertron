@@ -774,11 +774,11 @@ function togglePaletteLock() {
     const btn = $('#lockPaletteBtn');
     if (paletteLocked) {
         btn.removeClass('btn-outline-secondary').addClass('btn-warning');
-        btn.html('<i class="fa fa-lock"></i> Locked');
+        btn.html('<i class="fa fa-lock"></i> Lock');
         btn.attr('title', 'Palette is locked - click to unlock and allow regeneration');
     } else {
         btn.removeClass('btn-warning').addClass('btn-outline-secondary');
-        btn.html('<i class="fa fa-unlock"></i> Lock Palette');
+        btn.html('<i class="fa fa-unlock"></i> Lock');
         btn.attr('title', 'Lock palette to prevent regeneration when cropping');
     }
 }
@@ -812,7 +812,7 @@ function onColorPickerAccept() {
         paletteLocked = true;
         const btn = $('#lockPaletteBtn');
         btn.removeClass('btn-outline-secondary').addClass('btn-warning');
-        btn.html('<i class="fa fa-lock"></i> Locked');
+        btn.html('<i class="fa fa-lock"></i> Lock');
         btn.attr('title', 'Palette is locked - click to unlock and allow regeneration');
     }
 
@@ -843,7 +843,7 @@ function initializePaletteFromSystem(sys: DithertronSettings) {
         paletteLocked = false;
         const btn = $('#lockPaletteBtn');
         btn.removeClass('btn-warning').addClass('btn-outline-secondary');
-        btn.html('<i class="fa fa-unlock"></i> Lock Palette');
+        btn.html('<i class="fa fa-unlock"></i> Lock');
         btn.attr('title', 'Lock palette to prevent regeneration when cropping');
     }
 
@@ -1160,7 +1160,7 @@ export function startUI() {
         // Letterbox toggle
         $('#letterboxToggle').on('click', toggleLetterboxMode);
 
-        // Create color picker panel and reset button
+        // Create color picker panel and palette control buttons
         const colorPickerHtml = `
             <div id="colorPickerPanel" class="color-picker-panel" style="display:none;">
                 <input type="color" id="colorPickerInput" class="color-picker-input">
@@ -1168,15 +1168,15 @@ export function startUI() {
             </div>
         `;
         $('#paletteSwatches').after(colorPickerHtml);
-        $('#colorPickerPanel').after(`
-            <div class="palette-buttons mt-1" style="display:flex; gap:0.5rem; justify-content:center;">
-                <button id="lockPaletteBtn" class="btn btn-sm btn-outline-secondary" style="display:none;" title="Lock palette to prevent regeneration when cropping">
-                    <i class="fa fa-unlock"></i> Lock Palette
-                </button>
-                <button id="resetPaletteBtn" class="btn btn-sm btn-outline-warning" style="display:none;">
-                    Reset Colors
-                </button>
-            </div>
+
+        // Add palette control buttons to the left of swatches
+        $('#paletteControls').html(`
+            <button id="lockPaletteBtn" class="btn btn-sm btn-outline-secondary" style="display:none;" title="Lock palette to prevent regeneration when cropping">
+                <i class="fa fa-unlock"></i> Lock
+            </button>
+            <button id="resetPaletteBtn" class="btn btn-sm btn-outline-warning" style="display:none;">
+                Reset
+            </button>
         `);
 
         // Palette swatch click handler
