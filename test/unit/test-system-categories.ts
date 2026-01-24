@@ -64,18 +64,18 @@ t.test("Each category has expected structure", async t => {
 });
 
 t.test("findSystemCategory works correctly", async t => {
-    // Test finding a main system
-    const nesResult = findSystemCategory('nes5f');
-    t.ok(nesResult, "Should find nes5f");
-    t.equal(nesResult?.category.id, 'defaults', "nes5f should be in defaults");
-    t.equal(nesResult?.isSubSystem, false, "nes5f is not a sub-system");
+    // Test finding a main system (nes4f is now the default for NES group)
+    const nesResult = findSystemCategory('nes4f');
+    t.ok(nesResult, "Should find nes4f");
+    t.equal(nesResult?.category.id, 'defaults', "nes4f should be in defaults");
+    t.equal(nesResult?.isSubSystem, false, "nes4f is not a sub-system");
 
     // Test finding a sub-system
     const nesSub = findSystemCategory('nes.2bpp');
     t.ok(nesSub, "Should find nes.2bpp");
     t.equal(nesSub?.isSubSystem, true, "nes.2bpp is a sub-system");
     t.ok(nesSub?.parentButton, "Should have parent button");
-    t.equal(nesSub?.parentButton?.systemId, 'nes5f', "Parent should be nes5f");
+    t.equal(nesSub?.parentButton?.systemId, 'nes4f', "Parent should be nes4f");
 
     // Test system in expanded category
     const c64Result = findSystemCategory('c64.multi');
@@ -96,7 +96,8 @@ t.test("findSystemCategory works correctly", async t => {
 
 t.test("getCategorySystemIds returns correct IDs", async t => {
     const defaultsIds = getCategorySystemIds('defaults');
-    t.ok(defaultsIds.includes('nes5f'), "defaults should include nes5f");
+    t.ok(defaultsIds.includes('nes4f'), "defaults should include nes4f (primary)");
+    t.ok(defaultsIds.includes('nes5f'), "defaults should include nes5f (sub-system)");
     t.ok(defaultsIds.includes('nes.2bpp'), "defaults should include sub-system nes.2bpp");
     t.ok(defaultsIds.includes('gb'), "defaults should include gb");
 

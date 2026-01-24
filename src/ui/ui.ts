@@ -129,16 +129,62 @@ function populateDitherButtons() {
     });
 }
 
-function populateSystemSidebar() {
-    const container = $('#systemAccordion');
+// Track active sidebar tab
+var activeSidebarTab: string = 'defaults';
+var expandedSidebarButtonId: string | null = null;
+
+function populateSidebarDefaults() {
+    const container = $('#sidebarDefaultsButtons');
     container.empty();
 
-    // Create alphabetically sorted list of system buttons
-    const sortedSystems = SYSTEMS
-        .filter(sys => sys !== null)
+    // Only show systems from the 'defaults' category
+    const defaultsCategory = SYSTEM_CATEGORIES.find(c => c.id === 'defaults');
+    if (!defaultsCategory) return;
+
+    defaultsCategory.systems.forEach(button => {
+        const btn = $('<button type="button" class="system-btn"></button>')
+            .text(button.label)
+            .attr('data-button-id', button.id)
+            .attr('data-system-id', button.systemId)
+            .attr('data-category', 'defaults');
+
+        if (button.subSystems && button.subSystems.length > 0) {
+            btn.append(' <span class="dropdown-arrow"><i class="fa fa-caret-down"></i></span>');
+            btn.attr('data-has-subsystems', 'true');
+        }
+
+        container.append(btn);
+    });
+}
+
+function populateSidebarExtended() {
+    const container = $('#sidebarExtendedButtons');
+    container.empty();
+
+    // Get systems from expanded and defunct categories
+    const expandedCategory = SYSTEM_CATEGORIES.find(c => c.id === 'expanded');
+    const defunctCategory = SYSTEM_CATEGORIES.find(c => c.id === 'defunct');
+
+    // Collect all system IDs from these categories (including sub-systems)
+    const extendedSystemIds = new Set<string>();
+
+    [expandedCategory, defunctCategory].forEach(category => {
+        if (category) {
+            category.systems.forEach(button => {
+                extendedSystemIds.add(button.systemId);
+                if (button.subSystems) {
+                    button.subSystems.forEach(subId => extendedSystemIds.add(subId));
+                }
+            });
+        }
+    });
+
+    // Get the actual systems and sort alphabetically
+    const extendedSystems = SYSTEMS
+        .filter(sys => sys !== null && extendedSystemIds.has(sys!.id))
         .sort((a, b) => a!.name.localeCompare(b!.name));
 
-    sortedSystems.forEach(sys => {
+    extendedSystems.forEach(sys => {
         if (sys) {
             const btn = $('<button type="button" class="system-btn"></button>')
                 .text(sys.name)
@@ -148,213 +194,162 @@ function populateSystemSidebar() {
     });
 }
 
-// Track currently expanded button in tabbed selector
-var expandedButtonId: string | null = null;
-var activeTabId: string = 'defaults';
-
-function populateSystemTabs() {
-    SYSTEM_CATEGORIES.forEach(category => {
-        const containerId = category.id + 'Buttons';
-        const container = $(`#${containerId}`);
-        container.empty();
-
-        category.systems.forEach(button => {
-            const btn = $('<button type="button" class="system-tab-btn"></button>')
-                .text(button.label)
-                .attr('data-button-id', button.id)
-                .attr('data-system-id', button.systemId)
-                .attr('data-category', category.id);
-
-            if (button.subSystems && button.subSystems.length > 0) {
-                btn.append(' <span class="dropdown-arrow"><i class="fa fa-caret-down"></i></span>');
-                btn.attr('data-has-subsystems', 'true');
-            }
-
-            container.append(btn);
-        });
-    });
-}
-
-function showSubSystems(categoryId: string, button: SystemButton) {
-    // Hide all sub-system rows
-    $('.sub-systems-row').removeClass('visible');
-
-    // Remove expanded state from all buttons
-    $('.system-tab-btn').removeClass('expanded');
-
-    const subSystemsRowId = categoryId + 'SubSystems';
-    const row = $(`#${subSystemsRowId}`);
-    row.empty();
+function showSidebarSubSystems(button: SystemButton) {
+    // Remove any existing inline sub-system containers
+    hideSidebarSubSystems();
 
     if (button.subSystems && button.subSystems.length > 0) {
-        // Include the default system (button.systemId) as the first option
+        // Include the default system as the first option
         const allSubSystems = [button.systemId, ...button.subSystems];
+
+        // Create inline container for sub-systems
+        const inlineContainer = $('<div class="sidebar-sub-systems-inline visible"></div>');
 
         allSubSystems.forEach(subId => {
             const sys = SYSTEM_LOOKUP[subId];
             if (sys) {
-                const subBtn = $('<button type="button" class="sub-system-btn"></button>')
+                const subBtn = $('<button type="button" class="sidebar-sub-system-btn"></button>')
                     .text(sys.name)
                     .attr('data-system-id', subId)
                     .attr('data-parent-button-id', button.id);
-                row.append(subBtn);
+                inlineContainer.append(subBtn);
             }
         });
-        row.addClass('visible');
-        $(`.system-tab-btn[data-button-id="${button.id}"]`).addClass('expanded');
-        expandedButtonId = button.id;
+
+        // Insert directly after the parent button
+        const parentBtn = $(`#sidebarDefaultsButtons .system-btn[data-button-id="${button.id}"]`);
+        parentBtn.addClass('expanded');
+        parentBtn.after(inlineContainer);
+
+        expandedSidebarButtonId = button.id;
     }
 }
 
-function hideSubSystems() {
-    $('.sub-systems-row').removeClass('visible');
-    $('.system-tab-btn').removeClass('expanded');
-    expandedButtonId = null;
+function hideSidebarSubSystems() {
+    // Remove any inline sub-system containers
+    $('.sidebar-sub-systems-inline').remove();
+    $('#sidebarDefaultsButtons .system-btn').removeClass('expanded');
+    expandedSidebarButtonId = null;
 }
 
-function switchTab(tabId: string) {
-    activeTabId = tabId;
+function switchSidebarTab(tabId: string) {
+    activeSidebarTab = tabId;
     // Update tab buttons
-    $('.system-tab').removeClass('active');
-    $(`.system-tab[data-tab="${tabId}"]`).addClass('active');
+    $('.sidebar-tab').removeClass('active');
+    $(`.sidebar-tab[data-sidebar-tab="${tabId}"]`).addClass('active');
 
     // Update tab content
-    $('.system-tab-content').removeClass('active');
-    $(`.system-tab-content[data-tab-content="${tabId}"]`).addClass('active');
+    $('.sidebar-tab-content').removeClass('active');
+    $(`.sidebar-tab-content[data-sidebar-tab-content="${tabId}"]`).addClass('active');
 
-    // Hide any expanded sub-systems
-    hideSubSystems();
+    // Hide sub-systems when switching tabs
+    hideSidebarSubSystems();
 }
 
-function updateTabbedSelectorDisplay(sys: DithertronSettings) {
-    // Remove active class from all buttons
-    $('.system-tab-btn').removeClass('active');
-    $('.sub-system-btn').removeClass('active');
+function filterSidebarSystems(searchTerm: string) {
+    const term = searchTerm.toLowerCase().trim();
 
-    // Find which category this system belongs to
-    const found = findSystemCategory(sys.id);
-    if (!found) return;
-
-    // Switch to the correct tab if needed
-    if (found.category.id !== activeTabId) {
-        switchTab(found.category.id);
-    }
-
-    if (found.isSubSystem && found.parentButton) {
-        // This is a sub-system, highlight parent and show sub-systems
-        $(`.system-tab-btn[data-button-id="${found.parentButton.id}"]`).addClass('active');
-
-        // Find the full parent button data
-        const parentBtn = found.category.systems.find(b => b.id === found.parentButton!.id);
-        if (parentBtn) {
-            showSubSystems(found.category.id, parentBtn);
+    // Filter based on active tab
+    if (activeSidebarTab === 'defaults') {
+        $('#sidebarDefaultsButtons .system-btn').each(function() {
+            const btn = $(this);
+            const name = btn.text().toLowerCase();
+            const matches = !term || name.includes(term);
+            btn.toggleClass('d-none', !matches);
+        });
+        // Hide sub-systems when searching
+        if (term) {
+            hideSidebarSubSystems();
         }
-
-        // Highlight the sub-system button
-        $(`.sub-system-btn[data-system-id="${sys.id}"]`).addClass('active');
     } else {
-        // This is a main system button
-        $(`.system-tab-btn[data-system-id="${sys.id}"]`).addClass('active');
+        $('#sidebarExtendedButtons .system-btn').each(function() {
+            const btn = $(this);
+            const name = btn.text().toLowerCase();
+            const matches = !term || name.includes(term);
+            btn.toggleClass('d-none', !matches);
+        });
+    }
+}
 
-        // If sub-systems are expanded for this button, also highlight in the sub-systems row
-        if (expandedButtonId) {
-            $(`.sub-system-btn[data-system-id="${sys.id}"]`).addClass('active');
+function updateSidebarDisplay(sys: DithertronSettings) {
+    // Update active state in both tabs
+    $('.sidebar-tab-content .system-btn').removeClass('active');
+    $('.sidebar-sub-system-btn').removeClass('active');
+    $(`.sidebar-tab-content .system-btn[data-system-id="${sys.id}"]`).addClass('active');
+
+    // Check if this system is in the defaults tab (via category lookup)
+    const found = findSystemCategory(sys.id);
+    if (found) {
+        // Highlight parent button if this is a sub-system
+        if (found.isSubSystem && found.parentButton) {
+            $(`#sidebarDefaultsButtons .system-btn[data-button-id="${found.parentButton.id}"]`).addClass('active');
+            // Also highlight the sub-system if expanded
+            $(`.sidebar-sub-system-btn[data-system-id="${sys.id}"]`).addClass('active');
+        } else {
+            // Find the button that has this system as its primary
+            $(`#sidebarDefaultsButtons .system-btn[data-system-id="${sys.id}"]`).addClass('active');
         }
     }
 }
 
-// Get list of system IDs in the active tab for keyboard navigation
-function getActiveTabSystemIds(): string[] {
-    const category = SYSTEM_CATEGORIES.find(c => c.id === activeTabId);
-    if (!category) return [];
-
-    // If sub-systems are expanded, return default + sub-system IDs
-    if (expandedButtonId) {
-        const button = category.systems.find(b => b.id === expandedButtonId);
-        if (button?.subSystems) {
-            return [button.systemId, ...button.subSystems];
-        }
-    }
-
-    // Otherwise return main button system IDs
-    return category.systems.map(b => b.systemId);
-}
-
-// Navigate within tabbed selector (Left/Right)
-function selectTabbedSystemByOffset(offset: number) {
-    const systemIds = getActiveTabSystemIds();
-    if (systemIds.length === 0) return;
-
-    const currentId = dithertron.settings.id;
-    let currentIndex = systemIds.indexOf(currentId);
-
-    // If current system not in this list, start at beginning (or end for negative offset)
-    if (currentIndex < 0) {
-        currentIndex = offset > 0 ? -1 : systemIds.length;
-    }
-
-    let newIndex = currentIndex + offset;
-
-    // Wrap around
-    if (newIndex < 0) newIndex = systemIds.length - 1;
-    if (newIndex >= systemIds.length) newIndex = 0;
-
-    const newId = systemIds[newIndex];
-    if (SYSTEM_LOOKUP[newId]) {
-        setTargetSystem(SYSTEM_LOOKUP[newId]);
-    }
-}
-
-function setupTabbedSelectorEvents() {
-    // Tab switching
-    $(document).on('click', '.system-tab', function() {
-        const tabId = $(this).attr('data-tab');
+function setupSidebarEvents() {
+    // Sidebar tab switching
+    $(document).on('click', '.sidebar-tab', function() {
+        const tabId = $(this).attr('data-sidebar-tab');
         if (tabId) {
-            switchTab(tabId);
+            switchSidebarTab(tabId);
         }
     });
 
-    // Main system button clicks
-    $(document).on('click', '.system-tab-btn', function(e) {
+    // Defaults tab - system button clicks with sub-system expansion
+    $('#sidebarDefaultsButtons').on('click', '.system-btn', function() {
         const buttonId = $(this).attr('data-button-id');
         const systemId = $(this).attr('data-system-id');
         const hasSubsystems = $(this).attr('data-has-subsystems') === 'true';
         const categoryId = $(this).attr('data-category');
 
         if (hasSubsystems && categoryId) {
-            // Find the button data
+            // Find the button data from categories
             const category = SYSTEM_CATEGORIES.find(c => c.id === categoryId);
             const button = category?.systems.find(b => b.id === buttonId);
 
             if (button) {
-                if (expandedButtonId === buttonId) {
-                    // Already expanded, collapse it - don't change selected system
-                    hideSubSystems();
+                if (expandedSidebarButtonId === buttonId) {
+                    // Already expanded, collapse it
+                    hideSidebarSubSystems();
                     return;
                 } else {
                     // Expand this button's sub-systems
-                    showSubSystems(categoryId, button);
+                    showSidebarSubSystems(button);
 
                     // Check if current system is already one of this button's systems
                     const allButtonSystems = [button.systemId, ...(button.subSystems || [])];
                     if (allButtonSystems.includes(dithertron.settings.id)) {
-                        // Already have a system from this group selected, highlight it and don't change
-                        $(`.sub-system-btn[data-system-id="${dithertron.settings.id}"]`).addClass('active');
+                        // Already have a system from this group selected
+                        $(`.sidebar-sub-system-btn[data-system-id="${dithertron.settings.id}"]`).addClass('active');
                         return;
                     }
                 }
             }
         }
 
-        // Select the system (only if not collapsing and not already in this group)
+        // Select the system
         if (systemId && SYSTEM_LOOKUP[systemId]) {
             setTargetSystem(SYSTEM_LOOKUP[systemId]);
         }
     });
 
-    // Sub-system button clicks
-    $(document).on('click', '.sub-system-btn', function(e) {
+    // Sub-system button clicks (for inline sub-system containers)
+    $('#sidebarDefaultsButtons').on('click', '.sidebar-sub-system-btn', function(e) {
         e.stopPropagation();
+        const systemId = $(this).attr('data-system-id');
+        if (systemId && SYSTEM_LOOKUP[systemId]) {
+            setTargetSystem(SYSTEM_LOOKUP[systemId]);
+        }
+    });
+
+    // Extended tab - simple system button clicks
+    $('#sidebarExtendedButtons').on('click', '.system-btn', function() {
         const systemId = $(this).attr('data-system-id');
         if (systemId && SYSTEM_LOOKUP[systemId]) {
             setTargetSystem(SYSTEM_LOOKUP[systemId]);
@@ -413,33 +408,11 @@ function initSidebarCollapseState() {
     }
 }
 
-function filterSystems(searchTerm: string) {
-    const term = searchTerm.toLowerCase().trim();
-    const sidebar = $('#systemSidebar');
-
-    if (!term) {
-        // Show all systems
-        sidebar.find('.system-btn').removeClass('d-none');
-        return;
-    }
-
-    // Filter systems and show matching ones
-    sidebar.find('.system-btn').each(function() {
-        const btn = $(this);
-        const name = btn.text().toLowerCase();
-        const id = (btn.attr('data-system-id') || '').toLowerCase();
-        const matches = name.includes(term) || id.includes(term);
-        btn.toggleClass('d-none', !matches);
-    });
-}
-
 function updateCurrentSystemDisplay(sys: DithertronSettings) {
     $('#currentSystemName').text(sys.name);
-    // Update active state in sidebar
-    $('.system-btn').removeClass('active');
-    $(`.system-btn[data-system-id="${sys.id}"]`).addClass('active');
-    // Update tabbed selector display
-    updateTabbedSelectorDisplay(sys);
+    $('#currentSystemDisplay').text(sys.name);
+    // Update sidebar display
+    updateSidebarDisplay(sys);
 }
 
 function toggleCropMode() {
@@ -465,24 +438,118 @@ function buildSystemIdList() {
     allSystemIds = SYSTEMS.filter(s => s !== null).map(s => s!.id);
 }
 
+// Get visible system IDs in the current sidebar tab in visual DOM order
+// This traverses the DOM so sub-systems appear immediately after their parent
+function getVisibleSystemIds(): string[] {
+    const visibleIds: string[] = [];
+
+    if (activeSidebarTab === 'defaults') {
+        // Traverse all children of defaults container in order
+        // This includes both .system-btn and .sidebar-sub-systems-inline containers
+        $('#sidebarDefaultsButtons').children().each(function() {
+            const $el = $(this);
+            if ($el.hasClass('system-btn') && !$el.hasClass('d-none')) {
+                const systemId = $el.attr('data-system-id');
+                if (systemId) {
+                    visibleIds.push(systemId);
+                }
+            } else if ($el.hasClass('sidebar-sub-systems-inline')) {
+                // Add all sub-system buttons within this expansion
+                $el.find('.sidebar-sub-system-btn').each(function() {
+                    const systemId = $(this).attr('data-system-id');
+                    if (systemId) {
+                        visibleIds.push(systemId);
+                    }
+                });
+            }
+        });
+    } else {
+        // Extended tab - get all visible buttons
+        $('#sidebarExtendedButtons .system-btn:not(.d-none)').each(function() {
+            const systemId = $(this).attr('data-system-id');
+            if (systemId) {
+                visibleIds.push(systemId);
+            }
+        });
+    }
+
+    return visibleIds;
+}
+
+// Find the parent button info for a given system ID in the defaults tab
+function findParentButtonForSystem(systemId: string): { buttonId: string; categoryId: string } | null {
+    const defaultsCategory = SYSTEM_CATEGORIES.find(c => c.id === 'defaults');
+    if (!defaultsCategory) return null;
+
+    for (const button of defaultsCategory.systems) {
+        if (button.systemId === systemId) {
+            return { buttonId: button.id, categoryId: 'defaults' };
+        }
+        if (button.subSystems?.includes(systemId)) {
+            return { buttonId: button.id, categoryId: 'defaults' };
+        }
+    }
+    return null;
+}
+
+// Expand the system group for the currently selected system (Right arrow)
+function expandCurrentSystemGroup() {
+    if (activeSidebarTab !== 'defaults') return;
+
+    const currentId = dithertron.settings.id;
+    const parentInfo = findParentButtonForSystem(currentId);
+    if (!parentInfo) return;
+
+    const defaultsCategory = SYSTEM_CATEGORIES.find(c => c.id === 'defaults');
+    const button = defaultsCategory?.systems.find(b => b.id === parentInfo.buttonId);
+
+    if (button && button.subSystems && button.subSystems.length > 0) {
+        if (expandedSidebarButtonId !== button.id) {
+            showSidebarSubSystems(button);
+        }
+    }
+}
+
+// Collapse the currently expanded system group (Left arrow)
+function collapseCurrentSystemGroup() {
+    if (activeSidebarTab !== 'defaults') return;
+
+    if (expandedSidebarButtonId) {
+        hideSidebarSubSystems();
+    }
+}
+
 // Select system by offset (for arrow key navigation)
 function selectSystemByOffset(offset: number) {
+    const visibleIds = getVisibleSystemIds();
+    if (visibleIds.length === 0) return;
+
     const currentId = dithertron.settings.id;
-    const currentIndex = allSystemIds.indexOf(currentId);
+    let currentIndex = visibleIds.indexOf(currentId);
+
+    // If current system not in visible list, start from beginning/end
+    if (currentIndex === -1) {
+        currentIndex = offset > 0 ? -1 : visibleIds.length;
+    }
+
     let newIndex = currentIndex + offset;
 
     // Wrap around
-    if (newIndex < 0) newIndex = allSystemIds.length - 1;
-    if (newIndex >= allSystemIds.length) newIndex = 0;
+    if (newIndex < 0) newIndex = visibleIds.length - 1;
+    if (newIndex >= visibleIds.length) newIndex = 0;
 
-    const newId = allSystemIds[newIndex];
+    const newId = visibleIds[newIndex];
     setTargetSystem(SYSTEM_LOOKUP[newId]);
     scrollSystemIntoView(newId);
 }
 
 // Scroll the selected system button into view
 function scrollSystemIntoView(sysId: string) {
-    const btn = $(`.system-btn[data-system-id="${sysId}"]`);
+    // Try main system button first, then sub-system button
+    let btn = $(`.system-btn[data-system-id="${sysId}"]`);
+    if (!btn.length) {
+        btn = $(`.sidebar-sub-system-btn[data-system-id="${sysId}"]`);
+    }
     if (btn.length) {
         btn[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -798,20 +865,36 @@ function togglePaletteLock() {
     }
 }
 
+// Track which swatch index the color picker is currently open for (-1 = closed)
+var colorPickerOpenForIndex: number = -1;
+
 function onSwatchClick(e: JQuery.ClickEvent) {
     const index = parseInt($(e.currentTarget).attr('data-index') || '0');
     if (currentPalette == null || index >= currentPalette.length) return;
 
+    const panel = $('#colorPickerPanel');
+
+    // Toggle behavior: if clicking the same swatch, close the picker
+    if (colorPickerOpenForIndex === index && panel.is(':visible')) {
+        closeColorPicker();
+        return;
+    }
+
     // Get current color and set color picker value
     const currentColor = uint32ToHex(currentPalette[index]);
     $('#colorPickerInput').val(currentColor);
-    $('#colorPickerPanel').attr('data-swatch-index', index.toString());
+    panel.attr('data-swatch-index', index.toString());
 
-    // Show the color picker panel
-    $('#colorPickerPanel').show();
+    // Show the color picker panel and track which swatch it's for
+    panel.show();
+    colorPickerOpenForIndex = index;
+
+    // Highlight the active swatch
+    $('.palette-swatch-clickable').removeClass('picker-active');
+    $(e.currentTarget).addClass('picker-active');
 }
 
-function onColorPickerAccept() {
+function onColorPickerChange() {
     const panel = $('#colorPickerPanel');
     const index = parseInt(panel.attr('data-swatch-index') || '0');
     const newColor = hexToUint32($('#colorPickerInput').val() as string);
@@ -831,12 +914,19 @@ function onColorPickerAccept() {
         btn.attr('title', 'Palette is locked - click to unlock and allow regeneration');
     }
 
-    // Hide the picker panel
-    panel.hide();
+    // Update the swatch color immediately
+    const rgb = "rgb(" + (newColor & 0xff) + "," + ((newColor >> 8) & 0xff) + "," + ((newColor >> 16) & 0xff) + ")";
+    $(`.palette-swatch-clickable[data-index="${index}"]`).css('background-color', rgb);
 
     // Update the settings palette and re-dither
     dithertron.settings.pal = currentPalette;
     resetImage();
+}
+
+function closeColorPicker() {
+    $('#colorPickerPanel').hide();
+    $('.palette-swatch-clickable').removeClass('picker-active');
+    colorPickerOpenForIndex = -1;
 }
 
 
@@ -1098,9 +1188,9 @@ export function startUI() {
         // Populate button groups
         populateDitherButtons();
         populateErrorFuncButtons();
-        populateSystemSidebar();
-        populateSystemTabs();
-        setupTabbedSelectorEvents();
+        populateSidebarDefaults();
+        populateSidebarExtended();
+        setupSidebarEvents();
         buildSystemIdList();
 
         dithertron.pixelsAvailable = (msg) => {
@@ -1167,28 +1257,16 @@ export function startUI() {
 
         // System search
         $('#systemSearch').on('input', function() {
-            filterSystems($(this).val() as string);
-        });
-
-        // System buttons in sidebar
-        $('#systemSidebar').on('click', '.system-btn', function() {
-            const sysId = $(this).attr('data-system-id');
-            if (sysId && SYSTEM_LOOKUP[sysId]) {
-                setTargetSystem(SYSTEM_LOOKUP[sysId]);
-                toggleSystemSidebar(false);
-                $('#systemSearch').val('');
-                filterSystems('');
-            }
+            filterSidebarSystems($(this).val() as string);
         });
 
         // Crop toggle
         $('#cropToggle').on('click', toggleCropMode);
 
-        // Create color picker panel and palette control buttons
+        // Create color picker panel (no Apply button - changes apply automatically)
         const colorPickerHtml = `
             <div id="colorPickerPanel" class="color-picker-panel" style="display:none;">
                 <input type="color" id="colorPickerInput" class="color-picker-input">
-                <button type="button" class="btn btn-sm btn-primary" id="colorPickerAcceptBtn">Apply</button>
             </div>
         `;
         $('#paletteSwatches').after(colorPickerHtml);
@@ -1203,11 +1281,25 @@ export function startUI() {
             </button>
         `);
 
-        // Palette swatch click handler
+        // Palette swatch click handler (toggle picker open/closed)
         $('#paletteSwatches').on('click', '.palette-swatch-clickable', onSwatchClick);
 
-        // Color picker event handlers
-        $('#colorPickerAcceptBtn').on('click', onColorPickerAccept);
+        // Color picker auto-apply on change
+        $('#colorPickerInput').on('input', onColorPickerChange);
+
+        // Close color picker when clicking outside
+        $(document).on('click', function(e) {
+            const panel = $('#colorPickerPanel');
+            if (!panel.is(':visible')) return;
+
+            // Check if click was outside the picker and not on a swatch
+            const clickedPicker = $(e.target).closest('#colorPickerPanel').length > 0;
+            const clickedSwatch = $(e.target).closest('.palette-swatch-clickable').length > 0;
+
+            if (!clickedPicker && !clickedSwatch) {
+                closeColorPicker();
+            }
+        });
 
         // Lock palette button handler
         $('#lockPaletteBtn').on('click', togglePaletteLock);
@@ -1228,20 +1320,10 @@ export function startUI() {
                 selectSystemByOffset(1);
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                // If diff method dropdown is open, navigate within it
-                if ($('#diffMethodDropdown').hasClass('visible')) {
-                    selectDitherMethodByOffset(-1);
-                } else {
-                    selectTabbedSystemByOffset(-1);
-                }
+                collapseCurrentSystemGroup();
             } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                // If diff method dropdown is open, navigate within it
-                if ($('#diffMethodDropdown').hasClass('visible')) {
-                    selectDitherMethodByOffset(1);
-                } else {
-                    selectTabbedSystemByOffset(1);
-                }
+                expandCurrentSystemGroup();
             }
         });
 

@@ -569,6 +569,287 @@ let pixelAspect = sys.scaleX || 1;
 
 ---
 
+### System Selector Consolidation
+
+**Goal:** Consolidate the dual system selector UI (tabbed selector above rendered image + sidebar) into a single, cleaner collapsible drawer with tabbed navigation.
+
+**Current Problems:**
+- Two separate system selectors (tabbed above image + sidebar on right)
+- Duplicated functionality between the two selectors
+- Takes up valuable screen real estate above the rendered image
+- Confusing to have two ways to select systems
+
+**Target Layout:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  DITHERTRON 2.0    [file] [example▼] | [PNG] [Copy] [Systems]   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌─────────────────┐     ┌─────────────────────────────────┐   │
+│   │                 │     │  ┌─────────────────────────────┐│   │
+│   │  Source Image   │     │  │ Search systems...           ││   │
+│   │   (cropper)     │     │  └─────────────────────────────┘│   │
+│   │                 │     │  ┌──────────┬──────────┐        │   │
+│   └─────────────────┘     │  │ Defaults │ Extended │        │   │
+│                           │  └──────────┴──────────┘        │   │
+│   ┌─────────────────┐     │  ┌─────────────────────────────┐│   │
+│   │                 │     │  │ C-64 Multi ▼                ││   │
+│   │ Rendered Image  │     │  │ C-64 Hires                  ││   │
+│   │                 │     │  │ NES                         ││   │
+│   │ System Name     │     │  │ Game Boy                    ││   │
+│   │ 320x200, 16 col │     │  │ ZX Spectrum ▼               ││   │
+│   │ [palette]       │     │  │ ...                         ││   │
+│   └─────────────────┘     │  └─────────────────────────────┘│   │
+│                           └─────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Key Features:**
+- Single collapsible drawer on right side
+- Search bar at top of drawer (always visible)
+- Two tabs: "Defaults" and "Extended"
+- Defaults tab mirrors the curated button groups with sub-system expansion
+- Extended tab contains expanded + defunct systems in vertical list
+- Current system name displayed above format info (dimensions, colors)
+- Remove duplicate tabbed selector above rendered image
+
+#### Stories
+
+##### Story S1: Add Tabs to Sidebar Drawer ✓
+- [x] Add two-tab header to sidebar: "Defaults" and "Extended"
+- [x] Keep search bar above the tabs
+- [x] Tab switching shows appropriate content
+- [x] Active tab visually distinguished
+
+**Acceptance Criteria:**
+- [x] Two tabs visible in sidebar
+- [x] Clicking tab switches content
+- [x] Search bar remains above tabs
+
+---
+
+##### Story S2: Populate Defaults Tab ✓
+- [x] Display curated system buttons matching current tabbed selector
+- [x] Support sub-system expansion (dropdown arrows)
+- [x] Vertical button layout within the drawer
+- [x] Active system highlighted
+
+**Acceptance Criteria:**
+- [x] Defaults tab shows same systems as current Defaults/Expanded/Defunct tabs combined into curated groups
+- [x] Sub-system expansion works
+- [x] Selected system is highlighted
+
+---
+
+##### Story S3: Populate Extended Tab ✓
+- [x] Combine "Expanded" and "Defunct" category systems
+- [x] Display as alphabetically sorted vertical list
+- [x] Search filters this list
+- [x] Active system highlighted
+
+**Acceptance Criteria:**
+- [x] Extended tab shows all expanded + defunct systems
+- [x] Alphabetical ordering
+- [x] Search works to filter list
+
+---
+
+##### Story S4: Display Current System Name ✓
+- [x] Add system name display above format info (dimensions, colors)
+- [x] Update when system changes
+- [x] Style consistently with format info
+
+**Acceptance Criteria:**
+- [x] Current system name visible above "320 x 200, 16 colors" info
+- [x] Updates when user selects different system
+
+---
+
+##### Story S5: Remove Duplicate Tabbed Selector ✓
+- [x] Remove the system-tabs-container from above rendered image
+- [x] Remove associated HTML
+- [x] Remove associated CSS
+- [x] Clean up unused JavaScript functions
+
+**Acceptance Criteria:**
+- [x] No system selector above rendered image
+- [x] All system selection happens through sidebar drawer
+- [x] No orphaned code remains
+
+---
+
+##### Story S6: Update Keyboard Navigation ✓
+- [x] Up/Down arrows navigate systems in sidebar
+- [x] Left/Right arrows navigate dither methods
+- [x] Search input filters visible systems
+
+**Acceptance Criteria:**
+- [x] Keyboard navigation works within drawer
+- [x] Can navigate without mouse
+
+---
+
+#### Implementation Order
+1. Story S4 - Display current system name (independent change) ✓
+2. Story S1 - Add tabs to sidebar ✓
+3. Story S2 - Populate Defaults tab ✓
+4. Story S3 - Populate Extended tab ✓
+5. Story S5 - Remove duplicate selector ✓
+6. Story S6 - Update keyboard navigation ✓
+
+---
+
+#### Bug Fixes / Refinements
+
+##### Story S7: Fix Defaults Tab Content ✓
+- [x] Defaults tab should only show systems from the "defaults" category
+- [x] Currently showing all categories (defaults + expanded + defunct) incorrectly
+- [x] Extended tab should contain expanded + defunct systems
+
+**Acceptance Criteria:**
+- [x] Defaults tab shows only curated default systems
+- [x] Extended tab shows expanded and defunct systems
+- [x] No overlap between tabs
+
+---
+
+##### Story S8: Fix Sub-System Expansion Position ✓
+- [x] When expanding a system group, sub-systems should appear directly below the parent button
+- [x] Currently sub-systems appear at the bottom of the list
+- [x] Sub-systems should be visually indented or grouped with parent
+
+**Acceptance Criteria:**
+- [x] Clicking a system with sub-systems expands them inline below the button
+- [x] Sub-systems visually connected to their parent
+- [x] Collapsing hides the inline sub-systems
+
+---
+
+##### Story S9: Fix Keyboard Navigation Order ✓
+- [x] Up/Down arrows should cycle through systems in the visible list order
+- [x] Navigation should follow the current tab's list sequentially
+- [x] Should wrap around at top/bottom of list
+
+**Acceptance Criteria:**
+- [x] Arrow keys navigate in visual order (top to bottom)
+- [x] Navigation respects active tab
+- [x] Wraps from last to first and vice versa
+
+---
+
+### Rendered Image Info & Palette Repositioning ✓
+
+**Goal:** Improve the layout by moving system info and palette to the right side of the rendered image, and streamline the color picker interaction.
+
+**Target Layout:**
+```
+┌─────────────────────────────────────────────┐
+│   ┌─────────────────────────┐  System Name  │
+│   │                         │  320 x 200    │
+│   │    Rendered Image       │  16 colors    │
+│   │                         │               │
+│   └─────────────────────────┘  [Lock]       │
+│                                 ■           │
+│                                 ■           │
+│                                 ■ (vertical)│
+│                                 ■           │
+└─────────────────────────────────────────────┘
+```
+
+#### Stories
+
+##### Story R1: Relocate System Info to Right Side ✓
+- [x] Move system name display to the right of the rendered canvas
+- [x] Move format info (dimensions, colors) below the system name
+- [x] Stack vertically on the right side
+- [x] Ensure responsive behavior on mobile (may stack below on small screens)
+
+**Acceptance Criteria:**
+- [x] System name appears to the right of the canvas
+- [x] Dimensions and color info below the name
+- [x] Layout remains usable on mobile
+
+---
+
+##### Story R2: Relocate Palette to Right Side (Vertical Orientation) ✓
+- [x] Move palette swatches to the right side, below the system info
+- [x] Change palette orientation from horizontal to vertical
+- [x] Move Lock/Reset buttons above or beside the vertical palette
+- [x] Ensure swatches are still clickable for color picker
+
+**Acceptance Criteria:**
+- [x] Palette displays vertically on the right side
+- [x] Lock/Reset buttons positioned appropriately
+- [x] Color picker still functional
+
+---
+
+##### Story R3: Streamline Color Picker UX ✓
+- [x] Clicking a palette swatch opens the color picker (current behavior)
+- [x] Changing color in picker auto-applies immediately (live preview)
+- [x] Clicking the same swatch again closes the picker
+- [x] Remove the "Apply" button (no longer needed)
+- [x] Clicking outside the picker or another swatch closes current picker
+
+**Acceptance Criteria:**
+- [x] Color changes apply immediately as user adjusts picker
+- [x] No Apply button needed
+- [x] Clicking swatch toggles picker open/closed
+- [x] Smooth UX for quick color adjustments
+
+---
+
+### Keyboard Navigation Improvements ✓
+
+**Goal:** Enhance sidebar keyboard navigation with expand/collapse support and sequential traversal through expanded sub-systems.
+
+#### Stories
+
+##### Story K1: Add Left/Right Keys for Expand/Collapse ✓
+- [x] Right arrow expands a system group (if it has sub-systems)
+- [x] Left arrow collapses an expanded system group
+- [x] If already collapsed, Left arrow does nothing (or moves to parent)
+- [x] Visual feedback when expanding/collapsing
+
+**Acceptance Criteria:**
+- [x] Right arrow on a group button expands its sub-systems
+- [x] Left arrow collapses the expanded group
+- [x] Works in conjunction with click behavior
+
+---
+
+##### Story K2: Sequential Navigation Through Expanded Sub-Systems ✓
+- [x] Up/Down arrows cycle through entire visible list including expanded sub-systems
+- [x] When a group is expanded, Down arrow enters the sub-system list
+- [x] Continue through sub-systems before moving to next main system
+- [x] Up arrow reverses this order (exit sub-systems back to parent)
+- [x] Wrap around at top/bottom of entire list
+
+**Acceptance Criteria:**
+- [x] Navigation flows: System A → (expand) → SubA1 → SubA2 → SubA3 → System B
+- [x] Up arrow reverses: System B → SubA3 → SubA2 → SubA1 → System A
+- [x] Seamless keyboard-only navigation
+
+---
+
+### System Configuration Updates ✓
+
+**Goal:** Update system defaults and configurations.
+
+#### Stories
+
+##### Story C1: Change NES Default Sub-System ✓
+- [x] Change NES group default from current to "4 color, full screen" variant
+- [x] Update `system-categories.ts` to set `nes4f` as the primary systemId
+- [x] Move previous default (`nes5f`) to sub-systems list
+
+**Acceptance Criteria:**
+- [x] NES button selects 4-color full screen variant by default
+- [x] Other NES variants still accessible via expansion
+- [x] No regression in NES system functionality
+
+---
+
 ## Completed
 
 ### System Selector Refactoring

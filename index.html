@@ -88,19 +88,31 @@
             flex-direction: column;
             height: 100vh;
             padding-bottom: 2.5rem; /* Space for fixed footer */
+            max-width: 100%; /* Full viewport width */
+            width: 100%;
         }
         .main-layout {
             display: flex;
             flex: 1;
             gap: 1rem; /* Gutter between columns */
             min-height: 0; /* Allow flex children to shrink */
-            padding: 0 0.5rem;
+            padding: 0 1rem;
         }
         .layout-column {
             flex: 1;
             display: flex;
             flex-direction: column;
             min-width: 0; /* Allow flex children to shrink */
+        }
+        /* Third column for system info and palette */
+        .info-column {
+            flex: 0 0 140px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center vertically */
+            padding: 1rem 0;
+            min-width: 100px;
+            max-width: 160px;
         }
         .column-top {
             flex-shrink: 0;
@@ -132,15 +144,20 @@
             margin-top: 0.5rem;
         }
 
-        /* Source image (cropper) - always fill width */
+        /* Source image (cropper) - scale to fill container */
         .image-container:not(.rendered-container) {
-            align-items: flex-start;
-            overflow-y: auto;
+            align-items: center;
+            justify-content: center;
             background: #fff;
         }
         img.crop {
             display: block;
             width: 100%;
+            max-height: 100%;
+        }
+        /* Cropper.js container should fill available space */
+        .cropper-container {
+            max-height: 100% !important;
         }
         /* Override cropper.js grid background */
         .cropper-bg {
@@ -148,44 +165,55 @@
             background-color: #fff;
         }
 
-        /* Rendered image (canvas) */
+        /* Rendered image (canvas) - scale to match source image sizing */
         .rendered-container {
-            flex-direction: column;
-            align-items: flex-start;
-            overflow-y: auto;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
         }
         .rendered-canvas {
             display: block;
             width: 100%;
-            height: auto;
+            max-height: 100%;
             background: #000;
+            /* aspect-ratio is set dynamically via JS */
+        }
+        /* Info panel in third column */
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        .system-name-display {
+            text-align: left;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #333;
+            word-break: break-word;
         }
         .format-info {
-            text-align: center;
+            text-align: left;
             font-size: 0.8rem;
             color: #6c757d;
-            margin-bottom: 0.5rem;
-            width: 100%;
-        }
-        .palette-area {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            width: 100%;
-            margin-top: 0.5rem;
+            line-height: 1.4;
         }
         .palette-controls {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
-            flex-shrink: 0;
+            width: 100%;
         }
-        .palette-swatches-container {
+        .palette-controls .btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .palette-swatches-vertical {
             display: flex;
-            justify-content: flex-start;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-            flex: 1;
+            flex-direction: column;
+            gap: 3px;
+            max-height: 350px;
+            overflow-y: auto;
         }
         #booksMenu {
             background-color: #666;
@@ -434,10 +462,83 @@
             color: #fff;
             padding: 0.5rem;
             border-radius: 0.25rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
         #systemSearch::placeholder {
             color: #adb5bd;
+        }
+        .sidebar-tabs {
+            display: flex;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #6c757d;
+        }
+        .sidebar-tab {
+            flex: 1;
+            padding: 0.5rem;
+            background: transparent;
+            border: none;
+            color: #adb5bd;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .sidebar-tab:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.05);
+        }
+        .sidebar-tab.active {
+            color: #fff;
+            border-bottom-color: #007bff;
+        }
+        .sidebar-tab-content {
+            display: none;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .sidebar-tab-content.active {
+            display: block;
+        }
+        .sidebar-sub-systems {
+            display: none;
+            margin-top: 0.25rem;
+            padding: 0.25rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 0.25rem;
+        }
+        .sidebar-sub-systems.visible {
+            display: block;
+        }
+        /* Inline sub-systems that appear directly below parent button */
+        .sidebar-sub-systems-inline {
+            margin: 0.25rem 0 0.25rem 0.75rem;
+            padding: 0.25rem;
+            background: rgba(0,0,0,0.15);
+            border-left: 2px solid #007bff;
+            border-radius: 0 0.25rem 0.25rem 0;
+        }
+        .sidebar-sub-systems-inline.visible {
+            display: block;
+        }
+        .sidebar-sub-system-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.75rem;
+            background: #5a6268;
+            border: 1px solid #6c757d;
+            color: #fff;
+            margin-bottom: 0.2rem;
+            border-radius: 0.2rem;
+            cursor: pointer;
+        }
+        .sidebar-sub-system-btn:hover {
+            background: #6c757d;
+        }
+        .sidebar-sub-system-btn.active {
+            background: #0069d9;
+            border-color: #0056b3;
         }
         .system-btn {
             display: block;
@@ -487,6 +588,12 @@
             z-index: 1;
             position: relative;
         }
+        .palette-swatch-clickable.picker-active {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 2px #007bff, 0 2px 8px rgba(0,0,0,0.4);
+            z-index: 2;
+            position: relative;
+        }
         #resetPaletteBtn {
             display: block;
             margin: 0.5rem auto 0;
@@ -528,6 +635,25 @@
                 display: grid;
                 grid-template-columns: repeat(2, 1fr);
             }
+            /* Info column becomes horizontal row on mobile */
+            .info-column {
+                flex: none;
+                max-width: 100%;
+                padding: 0.5rem;
+            }
+            .info-panel {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: center;
+                gap: 0.75rem;
+            }
+            .palette-swatches-vertical {
+                flex-direction: row;
+                flex-wrap: wrap;
+                max-height: none;
+                justify-content: center;
+            }
         }
         @media (max-width: 400px) {
             .error-func-group {
@@ -539,122 +665,6 @@
             }
         }
 
-        /* Tabbed System Selector */
-        .system-tabs-container {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 0.25rem;
-            margin-bottom: 0.5rem;
-            padding: 0.5rem;
-        }
-        .system-tabs-header {
-            display: flex;
-            align-items: center;
-            border-bottom: 1px solid #dee2e6;
-            margin-bottom: 0.5rem;
-        }
-        .system-tabs-header .ml-auto {
-            margin-left: auto;
-        }
-        .system-tab {
-            padding: 0.35rem 0.75rem;
-            font-size: 0.75rem;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            color: #6c757d;
-            cursor: pointer;
-            transition: all 0.15s ease;
-        }
-        .system-tab:hover {
-            color: #495057;
-            background: rgba(0,0,0,0.03);
-        }
-        .system-tab.active {
-            color: #007bff;
-            border-bottom-color: #007bff;
-            font-weight: 500;
-        }
-        .system-tab-content {
-            display: none;
-        }
-        .system-tab-content.active {
-            display: block;
-        }
-        .system-buttons-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-        }
-        .system-tab-btn {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.7rem;
-            background: #495057;
-            border: 1px solid #6c757d;
-            color: #fff;
-            border-radius: 0.25rem;
-            cursor: pointer;
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-        .system-tab-btn:hover {
-            background: #5a6268;
-        }
-        .system-tab-btn.active {
-            background: #007bff;
-            border-color: #0056b3;
-        }
-        .system-tab-btn .dropdown-arrow {
-            font-size: 0.6rem;
-            transition: transform 0.15s ease;
-        }
-        .system-tab-btn.expanded .dropdown-arrow {
-            transform: rotate(180deg);
-        }
-        .sub-systems-row {
-            display: none;
-            margin-top: 0.25rem;
-            padding: 0.25rem;
-            background: rgba(0,0,0,0.05);
-            border-radius: 0.25rem;
-        }
-        .sub-systems-row.visible {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-        }
-        .sub-system-btn {
-            padding: 0.2rem 0.4rem;
-            font-size: 0.65rem;
-            background: #6c757d;
-            border: 1px solid #5a6268;
-            color: #fff;
-            border-radius: 0.2rem;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .sub-system-btn:hover {
-            background: #5a6268;
-        }
-        .sub-system-btn.active {
-            background: #0069d9;
-            border-color: #0056b3;
-        }
-        @media (max-width: 767px) {
-            .system-tabs-container {
-                margin-bottom: 0.25rem;
-            }
-            .system-tab {
-                padding: 0.25rem 0.5rem;
-                font-size: 0.7rem;
-            }
-            .system-tab-btn {
-                font-size: 0.65rem;
-                padding: 0.2rem 0.4rem;
-            }
-        }
     </style>
 </head>
 <!-- body -->
@@ -732,50 +742,11 @@
                 </div>
             </div>
 
-            <!-- Right Column: Rendered Image -->
+            <!-- Middle Column: Rendered Image -->
             <div class="layout-column">
-                <div class="column-top">
-                    <!-- Tabbed System Selector -->
-                    <div class="system-tabs-container" id="systemTabsContainer">
-                        <div class="system-tabs-header">
-                            <button type="button" class="system-tab active" data-tab="defaults">Defaults</button>
-                            <button type="button" class="system-tab" data-tab="expanded">Expanded</button>
-                            <button type="button" class="system-tab" data-tab="defunct">Defunct</button>
-                        </div>
-                        <div class="system-tab-content active" data-tab-content="defaults">
-                            <div class="system-buttons-row" id="defaultsButtons">
-                                <!-- Populated by JS -->
-                            </div>
-                            <div class="sub-systems-row" id="defaultsSubSystems">
-                                <!-- Sub-systems populated by JS -->
-                            </div>
-                        </div>
-                        <div class="system-tab-content" data-tab-content="expanded">
-                            <div class="system-buttons-row" id="expandedButtons">
-                                <!-- Populated by JS -->
-                            </div>
-                            <div class="sub-systems-row" id="expandedSubSystems">
-                                <!-- Sub-systems populated by JS -->
-                            </div>
-                        </div>
-                        <div class="system-tab-content" data-tab-content="defunct">
-                            <div class="system-buttons-row" id="defunctButtons">
-                                <!-- Populated by JS -->
-                            </div>
-                            <div class="sub-systems-row" id="defunctSubSystems">
-                                <!-- Sub-systems populated by JS -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div class="column-image">
                     <div class="image-container rendered-container">
-                        <div id="targetFormatInfo" class="format-info"></div>
                         <canvas id="destcanvas" class="rendered-canvas"></canvas>
-                        <div class="palette-area">
-                            <div id="paletteControls" class="palette-controls"></div>
-                            <div id="paletteSwatches" class="palette-swatches-container"></div>
-                        </div>
                     </div>
                 </div>
                 <div class="column-bottom">
@@ -822,6 +793,16 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Right Column: System Info & Palette -->
+            <div class="info-column">
+                <div class="info-panel">
+                    <div id="currentSystemDisplay" class="system-name-display"></div>
+                    <div id="targetFormatInfo" class="format-info"></div>
+                    <div id="paletteControls" class="palette-controls"></div>
+                    <div id="paletteSwatches" class="palette-swatches-vertical"></div>
                 </div>
             </div>
         </div>
@@ -882,8 +863,22 @@
             <button class="system-sidebar-close" id="systemSidebarClose">&times;</button>
         </div>
         <input type="text" id="systemSearch" placeholder="Search systems...">
-        <div class="system-category-accordion" id="systemAccordion">
-            <!-- System categories populated by JS -->
+        <div class="sidebar-tabs">
+            <button type="button" class="sidebar-tab active" data-sidebar-tab="defaults">Defaults</button>
+            <button type="button" class="sidebar-tab" data-sidebar-tab="extended">Extended</button>
+        </div>
+        <div class="sidebar-tab-content active" data-sidebar-tab-content="defaults">
+            <div id="sidebarDefaultsButtons">
+                <!-- Defaults systems populated by JS -->
+            </div>
+            <div id="sidebarDefaultsSubSystems" class="sidebar-sub-systems">
+                <!-- Sub-systems populated by JS -->
+            </div>
+        </div>
+        <div class="sidebar-tab-content" data-sidebar-tab-content="extended">
+            <div id="sidebarExtendedButtons">
+                <!-- Extended systems populated by JS -->
+            </div>
         </div>
     </div>
 

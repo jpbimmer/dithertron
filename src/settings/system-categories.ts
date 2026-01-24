@@ -25,8 +25,8 @@ export const SYSTEM_CATEGORIES: SystemCategory[] = [
             {
                 id: 'nes-group',
                 label: 'NES',
-                systemId: 'nes5f',
-                subSystems: ['nes4f', 'nes.2bpp', 'nes', 'nes.1bpp']
+                systemId: 'nes4f',
+                subSystems: ['nes5f', 'nes.2bpp', 'nes', 'nes.1bpp']
             },
             {
                 id: 'snes-group',
