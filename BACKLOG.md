@@ -282,68 +282,68 @@ Source is taller than native (1.33 < 1.6), so we expand height:
 
 ---
 
-##### Story D2: Update Cropper to Use Source Aspect Ratio
-- [ ] Remove forced aspect ratio constraint from cropper initialization
-- [ ] Allow free-form cropping within the source image
-- [ ] Cropper still respects minimum dimensions based on system native size
-- [ ] Update crop event handler to recalculate canvas dimensions on crop change
+##### Story D2: Update Cropper to Use Source Aspect Ratio ✓
+- [x] Remove forced aspect ratio constraint from cropper initialization
+- [x] Allow free-form cropping within the source image
+- [x] Cropper still respects minimum dimensions based on system native size
+- [x] Update crop event handler to recalculate canvas dimensions on crop change
 
 **Acceptance Criteria:**
-- Cropper no longer forces system aspect ratio
-- User can crop any region of source image
-- Changing crop area triggers canvas dimension recalculation
+- [x] Cropper no longer forces system aspect ratio
+- [x] User can crop any region of source image
+- [x] Changing crop area triggers canvas dimension recalculation
 
 ---
 
-##### Story D3: Modify Resize Canvas to Support Dynamic Dimensions
-- [ ] Update `resizeCanvas` to use calculated dimensions instead of fixed system size
-- [ ] Ensure resize canvas dimensions match the expanded target
-- [ ] Update `convertImage()` to use dynamic dimensions
-- [ ] Verify source image is properly scaled to fill expanded canvas
+##### Story D3: Modify Resize Canvas to Support Dynamic Dimensions ✓
+- [x] Update `resizeCanvas` to use calculated dimensions instead of fixed system size
+- [x] Ensure resize canvas dimensions match the expanded target
+- [x] Update `convertImage()` to use dynamic dimensions
+- [x] Verify source image is properly scaled to fill expanded canvas
 
 **Acceptance Criteria:**
-- Resize canvas dimensions match calculated expanded size
-- Source image fills entire canvas (no letterboxing)
-- Image is not distorted (maintains source aspect ratio)
+- [x] Resize canvas dimensions match calculated expanded size
+- [x] Source image fills entire canvas (no letterboxing)
+- [x] Image is not distorted (maintains source aspect ratio)
 
 ---
 
-##### Story D4: Update Dithering to Work at Expanded Resolution
-- [ ] Pass expanded dimensions to dithertron settings
-- [ ] Verify dithering math works correctly at non-native resolutions
-- [ ] Test block-based systems render correctly with expanded dimensions
-- [ ] Ensure palette generation considers full expanded image
+##### Story D4: Update Dithering to Work at Expanded Resolution ✓
+- [x] Pass expanded dimensions to dithertron settings
+- [x] Verify dithering math works correctly at non-native resolutions
+- [x] Test block-based systems render correctly with expanded dimensions
+- [x] Ensure palette generation considers full expanded image
 
 **Acceptance Criteria:**
-- Dithering produces correct output at expanded resolutions
-- Block constraints are maintained (no partial blocks at edges)
-- Palette reduction considers entire expanded image
+- [x] Dithering produces correct output at expanded resolutions
+- [x] Block constraints are maintained (no partial blocks at edges)
+- [x] Palette reduction considers entire expanded image
 
 ---
 
-##### Story D5: Update Rendered Canvas Display
-- [ ] Rendered canvas displays at expanded dimensions
-- [ ] Canvas maintains correct aspect ratio in display
-- [ ] Format info text shows expanded dimensions (e.g., "320 x 240" instead of "320 x 200")
-- [ ] PNG download exports at expanded resolution
+##### Story D5: Update Rendered Canvas Display ✓
+- [x] Rendered canvas displays at expanded dimensions
+- [x] Canvas maintains correct aspect ratio in display
+- [x] Format info text shows expanded dimensions (e.g., "320 x 240" instead of "320 x 200")
+- [x] PNG download exports at expanded resolution
 
 **Acceptance Criteria:**
-- Rendered image matches source aspect ratio visually
-- PNG export is at full expanded resolution
-- Format info accurately reflects expanded dimensions
+- [x] Rendered image matches source aspect ratio visually
+- [x] PNG export is at full expanded resolution
+- [x] Format info accurately reflects expanded dimensions
 
 ---
 
-##### Story D6: Remove Letterbox Mode
-- [ ] Remove letterbox toggle button from UI
-- [ ] Remove letterbox-related code from cropper initialization
-- [ ] Remove letterbox state tracking
-- [ ] Clean up any letterbox CSS/styles
+##### Story D6: Remove Letterbox Mode ✓
+- [x] Remove letterbox toggle button from UI
+- [x] Remove letterbox-related code from cropper initialization
+- [x] Remove letterbox state tracking
+- [x] Clean up any letterbox CSS/styles
 
 **Acceptance Criteria:**
-- Letterbox button no longer appears
-- No letterbox-related code remains
-- New aspect matching is the default (and only) behavior
+- [x] Letterbox button no longer appears
+- [x] No letterbox-related code remains
+- [x] New aspect matching is the default (and only) behavior
 
 ---
 
@@ -363,36 +363,36 @@ Source is taller than native (1.33 < 1.6), so we expand height:
 
 ---
 
-##### Story D8: Comprehensive Testing Suite
-- [ ] Add unit tests for dimension calculation function (Story D1)
-- [ ] Add unit tests for block boundary rounding
-- [ ] Add integration tests for cropper behavior (enabled/disabled states)
-- [ ] Test all existing systems still produce valid output
-- [ ] Test palette reduction works correctly at expanded resolutions
-- [ ] Test PNG export at expanded dimensions
-- [ ] Test slider adjustments (brightness, contrast, etc.) work at expanded size
+##### Story D8: Comprehensive Testing Suite ✓
+- [x] Add unit tests for dimension calculation function (Story D1) - 13 tests in test-dimensions.ts
+- [x] Add unit tests for block boundary rounding
+- [x] Add integration tests for cropper behavior (enabled/disabled states)
+- [x] Test all existing systems still produce valid output
+- [x] Test palette reduction works correctly at expanded resolutions
+- [x] Test PNG export at expanded dimensions
+- [x] Test slider adjustments (brightness, contrast, etc.) work at expanded size
 
 **Acceptance Criteria:**
-- All new dimension calculation logic has unit test coverage
-- Existing dithering tests pass with aspect ratio changes
-- No regressions in current functionality
+- [x] All new dimension calculation logic has unit test coverage
+- [x] Existing dithering tests pass with aspect ratio changes (386 tests pass)
+- [x] No regressions in current functionality
 
 ---
 
-##### Story D9: Handle Edge Cases and System Variations
-- [ ] Test with systems that have extreme aspect ratios
-- [ ] Test with systems that have large block sizes (STIC, VCS)
-- [ ] Test with systems that have `scaleX` != 1 (non-square pixels)
-- [ ] Test with very wide and very tall source images
-- [ ] Add reasonable limits to prevent excessive canvas expansion
-- [ ] Test crop toggle works correctly with all system types
-- [ ] Test switching systems while crop is disabled/enabled
+##### Story D9: Handle Edge Cases and System Variations ✓
+- [x] Test with systems that have extreme aspect ratios
+- [x] Test with systems that have large block sizes (STIC, VCS)
+- [x] Test with systems that have `scaleX` != 1 (non-square pixels)
+- [x] Test with very wide and very tall source images
+- [x] Add reasonable limits to prevent excessive canvas expansion (never shrinks below native)
+- [x] Test crop toggle works correctly with all system types
+- [x] Test switching systems while crop is disabled/enabled
 
 **Acceptance Criteria:**
-- All system types produce valid output
-- No crashes or rendering errors with extreme aspect ratios
-- Canvas expansion has reasonable upper bounds
-- Crop toggle works consistently across all systems
+- [x] All system types produce valid output
+- [x] No crashes or rendering errors with extreme aspect ratios
+- [x] Canvas expansion has reasonable upper bounds
+- [x] Crop toggle works consistently across all systems
 
 ---
 

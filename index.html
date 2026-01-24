@@ -220,16 +220,20 @@
             left: 50%;
             transform: translateX(-50%);
         }
+        .navbar-divider {
+            width: 1px;
+            height: 24px;
+            background-color: #ccc;
+            margin: 0 0.25rem;
+        }
+        .file-input-sm {
+            font-size: 0.8rem;
+            max-width: 180px;
+        }
         /* Compact alert styling */
         .column-top .alert,
         .column-bottom .alert {
             padding: 0.5rem 0.75rem;
-        }
-        /* Letterbox toggle button */
-        #letterboxToggle.active {
-            background: #007bff;
-            border-color: #007bff;
-            color: #fff;
         }
         /* Crop toggle button */
         #cropToggle.active {
@@ -661,6 +665,14 @@
         <nav class="navbar">
             <a class="navbar-brand text-dark" href="#">DITHERTRON 2.0</a>
             <div class="navbar-actions ml-auto">
+                <input type="file" id="imageUpload" class="file-input-sm">
+                <a class="btn btn-secondary btn-sm dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    Select an example
+                </a>
+                <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
+                </div>
+                <span class="navbar-divider"></span>
                 <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
                     title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
                 <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
@@ -675,22 +687,6 @@
         <div class="main-layout">
             <!-- Left Column: Source Image -->
             <div class="layout-column">
-                <div class="column-top">
-                    <div class="alert alert-info">
-                        <div class="source-controls">
-                            <input type="file" id="imageUpload">
-                            <a class="btn btn-secondary dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                Select an example
-                            </a>
-                            <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
-                            </div>
-                            <button id="cropToggle" type="button" class="btn btn-outline-secondary btn-sm" title="Enable crop tool to adjust source image area">
-                                <i class="fa fa-crop"></i> Crop
-                            </button>
-                        </div>
-                    </div>
-                </div>
                 <div class="column-image">
                     <div class="image-container">
                         <img class="crop" id="srcimage">
@@ -705,6 +701,9 @@
                                     data-slider-max="100" data-slider-value="50" />
                             </div>
                             <div class="col-sm-4 col-md-4 text-right">
+                                <button id="cropToggle" type="button" class="btn btn-outline-secondary btn-sm" title="Enable crop tool to adjust source image area">
+                                    <i class="fa fa-crop"></i> Crop
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="resetSourceSliders">Reset</button>
                             </div>
                         </div>
@@ -742,9 +741,6 @@
                             <button type="button" class="system-tab active" data-tab="defaults">Defaults</button>
                             <button type="button" class="system-tab" data-tab="expanded">Expanded</button>
                             <button type="button" class="system-tab" data-tab="defunct">Defunct</button>
-                            <button id="letterboxToggle" type="button" class="btn btn-outline-secondary btn-sm ml-auto" title="Toggle letterbox mode (fit image without cropping)">
-                                <i class="fa fa-arrows-alt"></i> Letterbox
-                            </button>
                         </div>
                         <div class="system-tab-content active" data-tab-content="defaults">
                             <div class="system-buttons-row" id="defaultsButtons">

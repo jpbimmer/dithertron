@@ -7,13 +7,16 @@ import * as fileviewers from "../export/fileviewers";
 import * as kernels from "../dither/kernels";
 
 import Cropper from 'cropperjs';
+import { calculateExpandedDimensions, ExpandedDimensions } from '../common/dimensions';
 import pica from 'pica';
 import { saveAs } from 'file-saver';
 import { EXAMPLE_IMAGES } from "./sampleimages";
 
 var cropper : Cropper;
-var letterboxMode = false;
 var cropEnabled = false; // Crop tool is disabled by default
+
+// Current expanded dimensions (may differ from native system dimensions)
+var currentExpandedDimensions: ExpandedDimensions | null = null;
 
 // System IDs list for keyboard navigation
 var allSystemIds: string[] = [];
@@ -439,16 +442,6 @@ function updateCurrentSystemDisplay(sys: DithertronSettings) {
     updateTabbedSelectorDisplay(sys);
 }
 
-function toggleLetterboxMode() {
-    letterboxMode = !letterboxMode;
-    $('#letterboxToggle').toggleClass('active', letterboxMode);
-
-    // Reload the source image to apply new cropper settings
-    if (cropper) {
-        loadSourceImage((cropper as any).url);
-    }
-}
-
 function toggleCropMode() {
     cropEnabled = !cropEnabled;
     $('#cropToggle').toggleClass('active', cropEnabled);
@@ -673,60 +666,46 @@ function convertImage() {
     // avoid "Failed to execute 'createImageBitmap' on 'Window': The crop rect height is 0."
     if (!cropCanvas?.width || !cropCanvas?.height) return;
 
-    if (letterboxMode) {
-        // Letterbox mode: fit image within target dimensions, fill rest with black
-        const targetWidth = resizeCanvas.width;
-        const targetHeight = resizeCanvas.height;
-        const sourceWidth = cropCanvas.width;
-        const sourceHeight = cropCanvas.height;
+    // Calculate expanded dimensions based on source aspect ratio
+    const expandedDims = calculateExpandedDimensions(
+        dithertron.settings,
+        { width: cropCanvas.width, height: cropCanvas.height }
+    );
+    currentExpandedDimensions = expandedDims;
 
-        // Calculate scale to fit within target while maintaining aspect ratio
-        const scaleX = targetWidth / sourceWidth;
-        const scaleY = targetHeight / sourceHeight;
-        const scale = Math.min(scaleX, scaleY);
+    // Update canvas sizes to match expanded dimensions
+    resizeCanvas.width = expandedDims.width;
+    resizeCanvas.height = expandedDims.height;
+    destCanvas.width = expandedDims.width;
+    destCanvas.height = expandedDims.height;
 
-        const scaledWidth = Math.round(sourceWidth * scale);
-        const scaledHeight = Math.round(sourceHeight * scale);
+    // Update aspect ratio for display
+    const pixelAspect = dithertron.settings.scaleX || 1;
+    (destCanvas.style as any).aspectRatio = (expandedDims.width * pixelAspect / expandedDims.height).toString();
 
-        // Create intermediate canvas at scaled size
-        const intermediateCanvas = document.createElement('canvas');
-        intermediateCanvas.width = scaledWidth;
-        intermediateCanvas.height = scaledHeight;
+    // Update system info to show current dimensions
+    showSystemInfo(dithertron.settings);
 
-        // Resize source to intermediate canvas
-        pica().resize(cropCanvas, intermediateCanvas, {}).then(() => {
-            // Clear resizeCanvas to black
-            const ctx = resizeCanvas.getContext('2d');
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, targetWidth, targetHeight);
-
-            // Center the scaled image on resizeCanvas
-            const offsetX = Math.round((targetWidth - scaledWidth) / 2);
-            const offsetY = Math.round((targetHeight - scaledHeight) / 2);
-            ctx.drawImage(intermediateCanvas, offsetX, offsetY);
-
-            reprocessImage();
-        }).catch((err) => {
-            showFingerprintError(err);
-        });
-    } else {
-        // Normal mode: stretch to fill target dimensions
-        pica().resize(cropCanvas, resizeCanvas, {
-            /*
-            unsharpAmount: 50,
-            unsharpRadius: 0.5,
-            unsharpThreshold: 2
-            */
-        }).then(() => {
-            reprocessImage();
-        }).catch((err) => {
-            showFingerprintError(err);
-        });
-    }
+    // Resize source to fill expanded canvas dimensions
+    pica().resize(cropCanvas, resizeCanvas, {}).then(() => {
+        reprocessImage();
+    }).catch((err) => {
+        showFingerprintError(err);
+    });
 }
 
 function getSystemInfo(sys: DithertronSettings) {
-    var s = sys.width + " x " + sys.height;
+    // Show expanded dimensions if available, otherwise native
+    let dimStr: string;
+    if (currentExpandedDimensions &&
+        (currentExpandedDimensions.width !== sys.width || currentExpandedDimensions.height !== sys.height)) {
+        dimStr = currentExpandedDimensions.width + " x " + currentExpandedDimensions.height +
+                 " (native: " + sys.width + " x " + sys.height + ")";
+    } else {
+        dimStr = sys.width + " x " + sys.height;
+    }
+
+    var s = dimStr;
     if (sys.reduce) s += ", " + sys.reduce + " out of " + sys.pal.length + " colors";
     else if (sys.pal) s += ", " + sys.pal.length + " colors";
     if (sys.block) {
@@ -916,12 +895,11 @@ function processImageDirectly() {
 function loadSourceImage(url: string) {
     // https://github.com/fengyuanchen/cropperjs/blob/master/README.md
     if (cropper) cropper.destroy();
-    const settings = dithertron.settings;
-    let aspect = (settings.width * (settings.scaleX || 1) / settings.height) || (4 / 3);
 
     const cropperOptions: Cropper.Options = {
         viewMode: 1,
         autoCropArea: 1.0,
+        // No forced aspect ratio - canvas expands to match source aspect ratio
         ready() {
             // Start with crop disabled by default
             if (!cropEnabled) {
@@ -943,11 +921,6 @@ function loadSourceImage(url: string) {
         },
     };
 
-    // Only force aspect ratio if crop is enabled and not in letterbox mode
-    if (cropEnabled && !letterboxMode) {
-        cropperOptions.aspectRatio = aspect;
-    }
-
     cropper = new Cropper(sourceImage, cropperOptions);
     cropper.replace(url);
     updateURL();
@@ -957,10 +930,13 @@ function setTargetSystem(sys: DithertronSettings) {
     var showNoise = sys.conv != 'DitheringCanvas';
     // Initialize mutable palette before setting up worker
     initializePaletteFromSystem(sys);
+    // Reset expanded dimensions - will be recalculated in convertImage
+    currentExpandedDimensions = null;
     dithertron.newWorker();
     dithertron.setSettings(sys);
     dithertron.restart();
     showSystemInfo(sys);
+    // Set initial dimensions to native - convertImage will expand as needed
     resizeCanvas.width = destCanvas.width = sys.width;
     resizeCanvas.height = destCanvas.height = sys.height;
     let pixelAspect = sys.scaleX || 1;
@@ -968,7 +944,7 @@ function setTargetSystem(sys: DithertronSettings) {
     $("#noiseSection").css('display', showNoise ? 'flex' : 'none');
     $("#diversitySection").css('display', sys.reduce ? 'flex' : 'none');
     if (cropper) {
-        loadSourceImage((cropper as any).url); // TODO?
+        loadSourceImage((cropper as any).url);
     }
     updateURL();
     updateCurrentSystemDisplay(sys);
@@ -1204,9 +1180,6 @@ export function startUI() {
                 filterSystems('');
             }
         });
-
-        // Letterbox toggle
-        $('#letterboxToggle').on('click', toggleLetterboxMode);
 
         // Crop toggle
         $('#cropToggle').on('click', toggleCropMode);
