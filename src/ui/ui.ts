@@ -13,6 +13,7 @@ import { EXAMPLE_IMAGES } from "./sampleimages";
 
 var cropper : Cropper;
 var letterboxMode = false;
+var cropEnabled = false; // Crop tool is disabled by default
 
 // System IDs list for keyboard navigation
 var allSystemIds: string[] = [];
@@ -448,6 +449,24 @@ function toggleLetterboxMode() {
     }
 }
 
+function toggleCropMode() {
+    cropEnabled = !cropEnabled;
+    $('#cropToggle').toggleClass('active', cropEnabled);
+
+    if (cropper) {
+        if (cropEnabled) {
+            // Enable cropper handles
+            cropper.enable();
+        } else {
+            // Disable cropper handles and reset to full image
+            cropper.clear();
+            cropper.disable();
+            // Trigger reprocess with full image
+            convertImage();
+        }
+    }
+}
+
 // Build list of system IDs for keyboard navigation
 function buildSystemIdList() {
     allSystemIds = SYSTEMS.filter(s => s !== null).map(s => s!.id);
@@ -633,7 +652,24 @@ function resetDitherSliders() {
 }
 
 function convertImage() {
-    let cropCanvas = cropper?.getCroppedCanvas();
+    let cropCanvas: HTMLCanvasElement | null = null;
+
+    if (cropEnabled && cropper) {
+        // Use cropped area
+        cropCanvas = cropper.getCroppedCanvas();
+    } else {
+        // Use full source image - create a canvas from the source image
+        if (sourceImage && sourceImage.complete && sourceImage.naturalWidth > 0) {
+            cropCanvas = document.createElement('canvas');
+            cropCanvas.width = sourceImage.naturalWidth;
+            cropCanvas.height = sourceImage.naturalHeight;
+            const ctx = cropCanvas.getContext('2d');
+            if (ctx) {
+                ctx.drawImage(sourceImage, 0, 0);
+            }
+        }
+    }
+
     // avoid "Failed to execute 'createImageBitmap' on 'Window': The crop rect height is 0."
     if (!cropCanvas?.width || !cropCanvas?.height) return;
 
@@ -886,17 +922,29 @@ function loadSourceImage(url: string) {
     const cropperOptions: Cropper.Options = {
         viewMode: 1,
         autoCropArea: 1.0,
+        ready() {
+            // Start with crop disabled by default
+            if (!cropEnabled) {
+                cropper.clear();
+                cropper.disable();
+            }
+            // Trigger initial conversion
+            convertImage();
+        },
         crop(event) {
-            if (isExactMatch(cropper.getImageData())) {
-                processImageDirectly();
-            } else {
-                convertImage();
+            // Only respond to crop events when crop is enabled
+            if (cropEnabled) {
+                if (isExactMatch(cropper.getImageData())) {
+                    processImageDirectly();
+                } else {
+                    convertImage();
+                }
             }
         },
     };
 
-    // Only force aspect ratio if not in letterbox mode
-    if (!letterboxMode) {
+    // Only force aspect ratio if crop is enabled and not in letterbox mode
+    if (cropEnabled && !letterboxMode) {
         cropperOptions.aspectRatio = aspect;
     }
 
@@ -1159,6 +1207,9 @@ export function startUI() {
 
         // Letterbox toggle
         $('#letterboxToggle').on('click', toggleLetterboxMode);
+
+        // Crop toggle
+        $('#cropToggle').on('click', toggleCropMode);
 
         // Create color picker panel and palette control buttons
         const colorPickerHtml = `

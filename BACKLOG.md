@@ -267,18 +267,18 @@ Source is taller than native (1.33 < 1.6), so we expand height:
 
 #### Stories
 
-##### Story D1: Calculate Expanded Canvas Dimensions
-- [ ] Create function to calculate expanded dimensions from source aspect ratio + system native size
-- [ ] Ensure expanded dimensions are multiples of system block size (if applicable)
-- [ ] Account for `scaleX` (pixel aspect ratio) in calculations
-- [ ] Always expand (never shrink) - take max of native and calculated dimension
-- [ ] Write unit tests for dimension calculations
+##### Story D1: Calculate Expanded Canvas Dimensions ✓
+- [x] Create function to calculate expanded dimensions from source aspect ratio + system native size
+- [x] Ensure expanded dimensions are multiples of system block size (if applicable)
+- [x] Account for `scaleX` (pixel aspect ratio) in calculations
+- [x] Always expand (never shrink) - take max of native and calculated dimension
+- [x] Write unit tests for dimension calculations (13 tests in test-dimensions.ts)
 
 **Acceptance Criteria:**
-- Given source 4:3 and system 320x200, output is 320x240
-- Given source 16:9 and system 320x200, output is 356x200 (rounded to block boundary)
-- Given source 1:1 and system 320x200, output is 320x320
-- Block-based systems round up to valid block boundaries
+- [x] Given source 4:3 and system 320x200, output is 320x240
+- [x] Given source 16:9 and system 320x200, output is 356x200 (rounded to block boundary)
+- [x] Given source 1:1 and system 320x200, output is 320x320
+- [x] Block-based systems round up to valid block boundaries
 
 ---
 
@@ -347,19 +347,19 @@ Source is taller than native (1.33 < 1.6), so we expand height:
 
 ---
 
-##### Story D7: Make Crop Tool Optional (Off by Default)
-- [ ] Disable cropper by default - source image displays without crop handles
-- [ ] Add "Crop" toggle button to source image controls (near file input)
-- [ ] When crop is disabled: use full source image, no resize handles shown
-- [ ] When crop is enabled: show cropper with drag/resize handles
-- [ ] Persist crop state when toggling (re-enable shows previous crop area)
-- [ ] Update UI to clearly indicate crop mode status
+##### Story D7: Make Crop Tool Optional (Off by Default) ✓
+- [x] Disable cropper by default - source image displays without crop handles
+- [x] Add "Crop" toggle button to source image controls (near file input)
+- [x] When crop is disabled: use full source image, no resize handles shown
+- [x] When crop is enabled: show cropper with drag/resize handles
+- [x] Persist crop state when toggling (cropper clear/disable preserves state)
+- [x] Update UI to clearly indicate crop mode status (active button style)
 
 **Acceptance Criteria:**
-- New images load without crop tool active
-- Toggle button enables/disables crop handles
-- Full source image is used when crop is disabled
-- Crop area is preserved when toggling on/off
+- [x] New images load without crop tool active
+- [x] Toggle button enables/disables crop handles
+- [x] Full source image is used when crop is disabled
+- [x] Crop area is preserved when toggling on/off
 
 ---
 
