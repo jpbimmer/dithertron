@@ -188,7 +188,7 @@
             background-color: #f8f8f8;
         }
 
-        /* Rendered image (canvas) - preserve aspect ratio set by JS */
+        /* Rendered image (canvas) - scale to fill while maintaining aspect ratio */
         .rendered-container {
             align-items: center;
             justify-content: center;
@@ -196,11 +196,11 @@
         }
         .rendered-canvas {
             display: block;
-            width: auto;
-            height: 100%;
-            max-width: 100%;
+            width: 100%;
+            height: auto;
             max-height: 100%;
-            /* aspect-ratio is set dynamically via JS, which controls width based on height */
+            /* aspect-ratio is set dynamically via JS (includes scaleX for non-square pixels) */
+            /* width: 100% scales up, height: auto uses aspect-ratio, max-height prevents overflow */
         }
         /* Palette controls */
         .palette-controls {
