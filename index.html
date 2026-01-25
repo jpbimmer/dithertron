@@ -27,7 +27,7 @@
             position: fixed;
             bottom: 0;
             left: 0;
-            right: 280px; /* Account for sidebar on desktop */
+            right: 0;
             text-align: center;
             padding: 0.5rem 1rem;
             color: #6c757d;
@@ -54,11 +54,6 @@
         .page-footer .dropdown-item img {
             height: 2em;
             margin-right: 0.5rem;
-        }
-        @media (max-width: 991px) {
-            .page-footer {
-                right: 0; /* Full width on mobile */
-            }
         }
         /* Custom CSS to make the container full-screen on desktop */
         @media (min-width: 768px) {
@@ -106,13 +101,36 @@
         }
         /* Third column for system info and palette */
         .info-column {
-            flex: 0 0 140px;
+            flex: 0 0 120px;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* Center vertically */
-            padding: 1rem 0;
+            justify-content: center;
+            padding: 0.5rem;
             min-width: 100px;
-            max-width: 160px;
+            max-width: 140px;
+        }
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .system-name-display {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #333;
+            word-break: break-word;
+        }
+        .format-info {
+            font-size: 0.75rem;
+            color: #6c757d;
+            line-height: 1.3;
+        }
+        .palette-swatches-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-height: 400px;
+            overflow-y: auto;
         }
         .column-top {
             flex-shrink: 0;
@@ -141,79 +159,57 @@
         }
         .column-bottom .alert {
             margin-bottom: 0;
-            margin-top: 0.5rem;
+            margin-top: 0;
+            min-height: 160px;
         }
 
-        /* Source image (cropper) - scale to fill container */
+        /* Source image (cropper) - preserve aspect ratio within container */
         .image-container:not(.rendered-container) {
             align-items: center;
             justify-content: center;
-            background: #fff;
+            background: #f8f8f8;
         }
         img.crop {
             display: block;
-            width: 100%;
+            max-width: 100%;
             max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
         }
-        /* Cropper.js container should fill available space */
+        /* Cropper.js container should respect image size */
         .cropper-container {
+            max-width: 100% !important;
             max-height: 100% !important;
         }
         /* Override cropper.js grid background */
         .cropper-bg {
             background-image: none;
-            background-color: #fff;
+            background-color: #f8f8f8;
         }
 
-        /* Rendered image (canvas) - scale to match source image sizing */
+        /* Rendered image (canvas) - preserve aspect ratio set by JS */
         .rendered-container {
             align-items: center;
             justify-content: center;
-            background: #fff;
+            background: #f8f8f8;
         }
         .rendered-canvas {
             display: block;
-            width: 100%;
+            width: auto;
+            height: 100%;
+            max-width: 100%;
             max-height: 100%;
-            background: #000;
-            /* aspect-ratio is set dynamically via JS */
+            /* aspect-ratio is set dynamically via JS, which controls width based on height */
         }
-        /* Info panel in third column */
-        .info-panel {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.75rem;
-        }
-        .system-name-display {
-            text-align: left;
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: #333;
-            word-break: break-word;
-        }
-        .format-info {
-            text-align: left;
-            font-size: 0.8rem;
-            color: #6c757d;
-            line-height: 1.4;
-        }
+        /* Palette controls */
         .palette-controls {
             display: flex;
-            flex-direction: column;
             gap: 0.25rem;
-            width: 100%;
         }
         .palette-controls .btn {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-        }
-        .palette-swatches-vertical {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            max-height: 350px;
-            overflow-y: auto;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.4rem;
         }
         #booksMenu {
             background-color: #666;
@@ -375,13 +371,9 @@
         .system-sidebar-close:hover {
             color: #adb5bd;
         }
-        /* Body padding to make room for sidebar on desktop */
+        /* Sidebar overlays content on desktop */
         @media (min-width: 992px) {
             body.full-screen-container {
-                padding-right: 280px;
-                transition: padding-right 0.3s ease;
-            }
-            body.full-screen-container.sidebar-collapsed {
                 padding-right: 0;
             }
             #systemSelectorToggle {
@@ -560,6 +552,12 @@
             background: #007bff;
             border-color: #0056b3;
         }
+        .system-btn.keyboard-highlight,
+        .sidebar-sub-system-btn.keyboard-highlight {
+            outline: 2px solid #ffc107;
+            outline-offset: 1px;
+            z-index: 1;
+        }
         .system-btn.d-none {
             display: none !important;
         }
@@ -594,29 +592,17 @@
             z-index: 2;
             position: relative;
         }
+        /* Hidden color picker input - triggered programmatically */
+        .color-picker-hidden {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+            pointer-events: none;
+        }
         #resetPaletteBtn {
             display: block;
             margin: 0.5rem auto 0;
-        }
-
-        /* Color picker panel */
-        .color-picker-panel {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: #343a40;
-            border: 1px solid #6c757d;
-            border-radius: 0.25rem;
-            padding: 0.35rem 0.5rem;
-            margin-left: 0.5rem;
-            vertical-align: middle;
-        }
-        .color-picker-input {
-            width: 2.5rem;
-            height: 2rem;
-            padding: 0;
-            border: none;
-            cursor: pointer;
         }
 
         /* Responsive improvements */
@@ -639,6 +625,7 @@
             .info-column {
                 flex: none;
                 max-width: 100%;
+                width: 100%;
                 padding: 0.5rem;
             }
             .info-panel {
@@ -652,7 +639,6 @@
                 flex-direction: row;
                 flex-wrap: wrap;
                 max-height: none;
-                justify-content: center;
             }
         }
         @media (max-width: 400px) {

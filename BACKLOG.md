@@ -850,6 +850,163 @@ let pixelAspect = sys.scaleX || 1;
 
 ---
 
+### Image Display & Layout Refinements ✓
+
+**Goal:** Improve image rendering to maintain proper aspect ratios and reorganize the info panel layout for better usability.
+
+**Target Layout:**
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  Source Image    │  Rendered Image   │  Diversity: ═══  [Reset] System Name │
+│  (aspect ratio   │  (max-height or   │  Ordered:   ═══  [Diff]  320 x 200   │
+│   preserved)     │   max-width fit)  │  Noise:     ═══         16 colors    │
+│                  │                   │  Diffusion: ═══                      │
+│                  │                   ├──────────────────────────────────────│
+│                  │                   │  [Lock] ■ ■ ■ ■ ■ ■ ■ ■ (palette)   │
+│                  │                   │         ■ ■ ■ ■ ■ ■ ■ ■             │
+└──────────────────┴───────────────────┴──────────────────────────────────────┘
+```
+
+#### Stories
+
+##### Story L1: Preserve Source Image Aspect Ratio ✓
+- [x] Ensure source image displays without stretching or skewing
+- [x] Maintain original aspect ratio when fitting within container
+- [x] Handle both landscape and portrait source images correctly
+
+**Acceptance Criteria:**
+- [x] Source image never appears distorted
+- [x] Aspect ratio preserved regardless of container size
+- [x] Works with any source image dimensions
+
+---
+
+##### Story L2: Rendered Image Max-Height/Max-Width Fitting ✓
+- [x] Rendered image should fit to max-height OR max-width based on aspect ratio
+- [x] Wider images fit to max-width, taller images fit to max-height
+- [x] Image should fill available space without overflow
+- [x] Maintain aspect ratio set by JavaScript
+
+**Acceptance Criteria:**
+- [x] Rendered image fills container appropriately
+- [x] No scrolling needed to see full rendered image
+- [x] Aspect ratio always preserved
+
+---
+
+##### Story L3: Expand Palette Area Height ✓
+- [x] Increase height of palette display area
+- [x] Eliminate need for scrolling in palette swatches
+- [x] Ensure all palette colors visible without scrolling
+- [x] Handle systems with large palettes (up to 64 colors)
+
+**Acceptance Criteria:**
+- [x] Palette swatches display without scrollbar
+- [x] All colors visible at once
+- [x] Works for systems with varying palette sizes
+
+---
+
+##### Story L4: Relocate System Info to Dither Panel ✓
+- [x] Move system name to the right of dither sliders
+- [x] Move sizing info (dimensions) next to system name
+- [x] Move color info next to sizing info
+- [x] Keep palette separate (remains in current location)
+
+**Acceptance Criteria:**
+- [x] System name, dimensions, and color info appear beside dither sliders
+- [x] Clear visual grouping of related information
+- [x] Palette remains in dedicated area
+
+---
+
+##### Story L5: Position Reset and Diffusion Buttons ✓
+- [x] Place Reset button between sliders and system info
+- [x] Place Diffusion method button between sliders and system info
+- [x] Buttons should be vertically aligned with slider rows
+- [x] Maintain compact layout
+
+**Acceptance Criteria:**
+- [x] Reset and Diffusion buttons clearly positioned
+- [x] Buttons accessible without disrupting slider interaction
+- [x] Clean visual separation between controls and info
+
+---
+
+### UI Polish & Bug Fixes
+
+**Goal:** Fix visual inconsistencies, improve color picker UX, and refine keyboard navigation behavior.
+
+#### Stories
+
+##### Story P1: Vertical Palette Layout ✓
+- [x] Change palette swatches from horizontal/grid to vertical stack
+- [x] Swatches should display in a single column
+- [x] Ensure adequate spacing between swatches
+- [x] Handle long palettes with scrolling if needed
+
+**Acceptance Criteria:**
+- [x] Palette displays as vertical column
+- [x] Consistent swatch sizing
+- [x] Scrollable for large palettes
+
+---
+
+##### Story P2: Fix System Selector Keyboard Navigation ✓
+- [x] Up/Down arrows cycle through system groups AND subsystems one-by-one
+- [x] When navigating to a group with subsystems, highlight the group first
+- [x] Down arrow on a group should enter its subsystems (if expanded)
+- [x] Left arrow collapses expanded group, Right arrow expands group
+- [x] Yellow highlight/selection should follow navigation correctly
+- [x] Highlight should be visible on both groups and subsystems
+
+**Acceptance Criteria:**
+- [x] Arrow keys move highlight through all visible items sequentially
+- [x] Left/Right expand/collapse groups
+- [x] Visual highlight always visible and follows selection
+- [x] Selecting a system (Enter or click) applies it
+
+---
+
+##### Story P3: Fix Rendered Image Aspect Ratio Stretching ✓
+- [x] Some systems (e.g., BBC Micro) have incorrect aspect ratio display
+- [x] Rendered image should not stretch to fill height incorrectly
+- [x] Maintain proper aspect ratio based on system's scaleX setting
+- [x] Canvas should fit within container without distortion
+
+**Acceptance Criteria:**
+- [x] BBC Micro and similar systems render at correct aspect ratio
+- [x] No vertical or horizontal stretching
+- [x] Image fits within container bounds
+
+---
+
+##### Story P4: Simplify Color Picker Interaction ✓
+- [x] Clicking a palette swatch should open the native color picker directly
+- [x] Remove intermediate popup/panel with duplicate swatch
+- [x] Color picker input should open immediately on swatch click
+- [x] Changes still auto-apply as color is adjusted
+
+**Acceptance Criteria:**
+- [x] Single click opens browser's native color picker
+- [x] No intermediate UI elements
+- [x] Live preview still works as color changes
+
+---
+
+##### Story P5: Align Dither Slider Styling with Source Sliders ✓
+- [x] Match spacing/padding of Diversity/Ordered/Noise/Diffusion sliders
+- [x] Use same layout as Bright/Contrast/Color sliders
+- [x] Consistent label widths and slider track alignment
+- [x] Uniform visual appearance across both slider panels
+
+**Acceptance Criteria:**
+- [x] Dither sliders visually match source sliders
+- [x] Consistent padding and margins
+- [x] Labels aligned identically
+
+---
+
 ## Completed
 
 ### System Selector Refactoring

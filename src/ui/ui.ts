@@ -476,71 +476,132 @@ function getVisibleSystemIds(): string[] {
     return visibleIds;
 }
 
+// Track keyboard navigation highlight (separate from selected system)
+var keyboardHighlightIndex: number = -1;
+
 // Find the parent button info for a given system ID in the defaults tab
-function findParentButtonForSystem(systemId: string): { buttonId: string; categoryId: string } | null {
+function findParentButtonForSystem(systemId: string): { buttonId: string; button: SystemButton } | null {
     const defaultsCategory = SYSTEM_CATEGORIES.find(c => c.id === 'defaults');
     if (!defaultsCategory) return null;
 
     for (const button of defaultsCategory.systems) {
         if (button.systemId === systemId) {
-            return { buttonId: button.id, categoryId: 'defaults' };
+            return { buttonId: button.id, button };
         }
         if (button.subSystems?.includes(systemId)) {
-            return { buttonId: button.id, categoryId: 'defaults' };
+            return { buttonId: button.id, button };
         }
     }
     return null;
 }
 
-// Expand the system group for the currently selected system (Right arrow)
-function expandCurrentSystemGroup() {
-    if (activeSidebarTab !== 'defaults') return;
+// Get the button ID for a system at the given index in the visible list
+function getButtonIdAtIndex(index: number): string | null {
+    const visibleIds = getVisibleSystemIds();
+    if (index < 0 || index >= visibleIds.length) return null;
+    return visibleIds[index];
+}
 
-    const currentId = dithertron.settings.id;
-    const parentInfo = findParentButtonForSystem(currentId);
-    if (!parentInfo) return;
+// Update the visual keyboard highlight
+function updateKeyboardHighlight() {
+    // Remove existing highlight
+    $('.system-btn, .sidebar-sub-system-btn').removeClass('keyboard-highlight');
 
-    const defaultsCategory = SYSTEM_CATEGORIES.find(c => c.id === 'defaults');
-    const button = defaultsCategory?.systems.find(b => b.id === parentInfo.buttonId);
+    const systemId = getButtonIdAtIndex(keyboardHighlightIndex);
+    if (!systemId) return;
 
-    if (button && button.subSystems && button.subSystems.length > 0) {
-        if (expandedSidebarButtonId !== button.id) {
-            showSidebarSubSystems(button);
-        }
+    // Add highlight to the appropriate button
+    let btn = $(`.system-btn[data-system-id="${systemId}"]`);
+    if (!btn.length) {
+        btn = $(`.sidebar-sub-system-btn[data-system-id="${systemId}"]`);
+    }
+    if (btn.length) {
+        btn.addClass('keyboard-highlight');
+        btn[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 }
 
-// Collapse the currently expanded system group (Left arrow)
-function collapseCurrentSystemGroup() {
-    if (activeSidebarTab !== 'defaults') return;
-
-    if (expandedSidebarButtonId) {
-        hideSidebarSubSystems();
-    }
-}
-
-// Select system by offset (for arrow key navigation)
-function selectSystemByOffset(offset: number) {
+// Move keyboard highlight by offset and select system (Up/Down arrows)
+function moveKeyboardHighlight(offset: number) {
     const visibleIds = getVisibleSystemIds();
     if (visibleIds.length === 0) return;
 
-    const currentId = dithertron.settings.id;
-    let currentIndex = visibleIds.indexOf(currentId);
-
-    // If current system not in visible list, start from beginning/end
-    if (currentIndex === -1) {
-        currentIndex = offset > 0 ? -1 : visibleIds.length;
+    // Initialize highlight to current system if not set
+    if (keyboardHighlightIndex < 0) {
+        const currentId = dithertron.settings.id;
+        keyboardHighlightIndex = visibleIds.indexOf(currentId);
+        if (keyboardHighlightIndex < 0) keyboardHighlightIndex = 0;
     }
 
-    let newIndex = currentIndex + offset;
+    let newIndex = keyboardHighlightIndex + offset;
 
     // Wrap around
     if (newIndex < 0) newIndex = visibleIds.length - 1;
     if (newIndex >= visibleIds.length) newIndex = 0;
 
-    const newId = visibleIds[newIndex];
-    setTargetSystem(SYSTEM_LOOKUP[newId]);
-    scrollSystemIntoView(newId);
+    keyboardHighlightIndex = newIndex;
+    updateKeyboardHighlight();
+
+    // Immediately select the highlighted system
+    selectHighlightedSystem();
+}
+
+// Select the currently highlighted system (Enter key)
+function selectHighlightedSystem() {
+    const systemId = getButtonIdAtIndex(keyboardHighlightIndex);
+    if (systemId && SYSTEM_LOOKUP[systemId]) {
+        setTargetSystem(SYSTEM_LOOKUP[systemId]);
+    }
+}
+
+// Expand group at current highlight (Right arrow)
+function expandHighlightedGroup() {
+    if (activeSidebarTab !== 'defaults') return;
+
+    const systemId = getButtonIdAtIndex(keyboardHighlightIndex);
+    if (!systemId) return;
+
+    const parentInfo = findParentButtonForSystem(systemId);
+    if (!parentInfo) return;
+
+    const button = parentInfo.button;
+    if (button && button.subSystems && button.subSystems.length > 0) {
+        if (expandedSidebarButtonId !== button.id) {
+            showSidebarSubSystems(button);
+            // Update highlight to stay on same item (index may have changed)
+            const visibleIds = getVisibleSystemIds();
+            keyboardHighlightIndex = visibleIds.indexOf(systemId);
+            updateKeyboardHighlight();
+        }
+    }
+}
+
+// Collapse group at current highlight (Left arrow)
+function collapseHighlightedGroup() {
+    if (activeSidebarTab !== 'defaults') return;
+
+    const systemId = getButtonIdAtIndex(keyboardHighlightIndex);
+    if (!systemId) return;
+
+    // Check if we're in a subsystem - if so, find the parent
+    const parentInfo = findParentButtonForSystem(systemId);
+    if (!parentInfo) return;
+
+    if (expandedSidebarButtonId === parentInfo.buttonId) {
+        // Move highlight to parent button before collapsing
+        const parentSystemId = parentInfo.button.systemId;
+        hideSidebarSubSystems();
+        // Update highlight to parent
+        const visibleIds = getVisibleSystemIds();
+        keyboardHighlightIndex = visibleIds.indexOf(parentSystemId);
+        updateKeyboardHighlight();
+    }
+}
+
+// Clear keyboard highlight when clicking
+function clearKeyboardHighlight() {
+    keyboardHighlightIndex = -1;
+    $('.system-btn, .sidebar-sub-system-btn').removeClass('keyboard-highlight');
 }
 
 // Scroll the selected system button into view
@@ -865,38 +926,31 @@ function togglePaletteLock() {
     }
 }
 
-// Track which swatch index the color picker is currently open for (-1 = closed)
-var colorPickerOpenForIndex: number = -1;
+// Track which swatch index the color picker is currently editing
+var colorPickerActiveIndex: number = -1;
 
 function onSwatchClick(e: JQuery.ClickEvent) {
     const index = parseInt($(e.currentTarget).attr('data-index') || '0');
     if (currentPalette == null || index >= currentPalette.length) return;
 
-    const panel = $('#colorPickerPanel');
-
-    // Toggle behavior: if clicking the same swatch, close the picker
-    if (colorPickerOpenForIndex === index && panel.is(':visible')) {
-        closeColorPicker();
-        return;
-    }
-
-    // Get current color and set color picker value
+    // Set the current color and track which swatch is being edited
     const currentColor = uint32ToHex(currentPalette[index]);
-    $('#colorPickerInput').val(currentColor);
-    panel.attr('data-swatch-index', index.toString());
-
-    // Show the color picker panel and track which swatch it's for
-    panel.show();
-    colorPickerOpenForIndex = index;
+    const colorInput = $('#colorPickerInput');
+    colorInput.val(currentColor);
+    colorPickerActiveIndex = index;
 
     // Highlight the active swatch
     $('.palette-swatch-clickable').removeClass('picker-active');
     $(e.currentTarget).addClass('picker-active');
+
+    // Trigger the native color picker by clicking the hidden input
+    colorInput[0].click();
 }
 
 function onColorPickerChange() {
-    const panel = $('#colorPickerPanel');
-    const index = parseInt(panel.attr('data-swatch-index') || '0');
+    const index = colorPickerActiveIndex;
+    if (index < 0) return;
+
     const newColor = hexToUint32($('#colorPickerInput').val() as string);
 
     if (currentPalette == null || index >= currentPalette.length) return;
@@ -924,9 +978,8 @@ function onColorPickerChange() {
 }
 
 function closeColorPicker() {
-    $('#colorPickerPanel').hide();
     $('.palette-swatch-clickable').removeClass('picker-active');
-    colorPickerOpenForIndex = -1;
+    colorPickerActiveIndex = -1;
 }
 
 
@@ -1265,9 +1318,7 @@ export function startUI() {
 
         // Create color picker panel (no Apply button - changes apply automatically)
         const colorPickerHtml = `
-            <div id="colorPickerPanel" class="color-picker-panel" style="display:none;">
-                <input type="color" id="colorPickerInput" class="color-picker-input">
-            </div>
+            <input type="color" id="colorPickerInput" class="color-picker-hidden">
         `;
         $('#paletteSwatches').after(colorPickerHtml);
 
@@ -1281,25 +1332,14 @@ export function startUI() {
             </button>
         `);
 
-        // Palette swatch click handler (toggle picker open/closed)
+        // Palette swatch click handler - opens native color picker directly
         $('#paletteSwatches').on('click', '.palette-swatch-clickable', onSwatchClick);
 
         // Color picker auto-apply on change
         $('#colorPickerInput').on('input', onColorPickerChange);
 
-        // Close color picker when clicking outside
-        $(document).on('click', function(e) {
-            const panel = $('#colorPickerPanel');
-            if (!panel.is(':visible')) return;
-
-            // Check if click was outside the picker and not on a swatch
-            const clickedPicker = $(e.target).closest('#colorPickerPanel').length > 0;
-            const clickedSwatch = $(e.target).closest('.palette-swatch-clickable').length > 0;
-
-            if (!clickedPicker && !clickedSwatch) {
-                closeColorPicker();
-            }
-        });
+        // Clear active state when color picker closes
+        $('#colorPickerInput').on('change', closeColorPicker);
 
         // Lock palette button handler
         $('#lockPaletteBtn').on('click', togglePaletteLock);
@@ -1307,25 +1347,31 @@ export function startUI() {
         // Reset palette button handler
         $('#resetPaletteBtn').on('click', resetPalette);
 
-        // Keyboard navigation for system selection and diff method
+        // Keyboard navigation for system selection
         $(document).on('keydown', (e) => {
             // Only handle if not focused on an input
             if ($(e.target).is('input, textarea')) return;
 
             if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                selectSystemByOffset(-1);
+                moveKeyboardHighlight(-1);
             } else if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                selectSystemByOffset(1);
+                moveKeyboardHighlight(1);
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                collapseCurrentSystemGroup();
+                collapseHighlightedGroup();
             } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                expandCurrentSystemGroup();
+                expandHighlightedGroup();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                selectHighlightedSystem();
             }
         });
+
+        // Clear keyboard highlight when clicking on system buttons
+        $('#sidebarDefaultsButtons, #sidebarExtendedButtons').on('click', '.system-btn, .sidebar-sub-system-btn', clearKeyboardHighlight);
 
         $("#downloadImageBtn").click(downloadImageFormat);
         $("#copyImageBtn").click(copyImageToClipboard);
