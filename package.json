@@ -5,10 +5,11 @@
   "main": "index.js",
   "scripts": {
     "tsbuild": "tsc",
-    "build": "npm run esbuild-worker && npm run esbuild-ui",
+    "build": "npm run esbuild-worker && npm run esbuild-ui && npm run copy-gif-worker",
     "clean": "rm -fr ./gen",
     "esbuild-worker": "esbuild src/worker/worker.ts --bundle --sourcemap --target=es2017 --outfile=./gen/worker.js",
     "esbuild-ui": "esbuild src/ui/ui.ts --loader:.asm=text --format=esm --bundle --minify --sourcemap --target=es2017 --outfile=./gen/ui.js --external:path --external:fs",
+    "copy-gif-worker": "cp node_modules/gif.js/dist/gif.worker.js ./gen/",
     "test-unit": "tap --allow-incomplete-coverage --comments run",
     "test-web": "npx nightwatch --test test/nightwatch/**.js --headless",
     "test": "npm run test-unit && npm run test-web"
@@ -23,6 +24,8 @@
     "cropper": "^4.1.0",
     "file-saver": "^2.0.2",
     "font-awesome": "^4.7.0",
+    "gif.js": "^0.2.0",
+    "gifuct-js": "^2.1.2",
     "jquery": "^3.5.0",
     "pica": "^9.0.0"
   },

@@ -55,6 +55,9 @@
             height: 2em;
             margin-right: 0.5rem;
         }
+        .dropup-caret::after {
+            transform: rotate(180deg);
+        }
         /* Custom CSS to make the container full-screen on desktop */
         @media (min-width: 768px) {
             .full-screen-container {
@@ -126,11 +129,8 @@
             line-height: 1.3;
         }
         .palette-swatches-vertical {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            max-height: 400px;
-            overflow-y: auto;
+            column-count: 3;
+            column-gap: 4px;
         }
         .column-top {
             flex-shrink: 0;
@@ -196,11 +196,9 @@
         }
         .rendered-canvas {
             display: block;
-            width: 100%;
-            height: auto;
+            max-width: 100%;
             max-height: 100%;
-            /* aspect-ratio is set dynamically via JS (includes scaleX for non-square pixels) */
-            /* width: 100% scales up, height: auto uses aspect-ratio, max-height prevents overflow */
+            /* Width/height set dynamically by JS based on container aspect ratio */
         }
         /* Palette controls */
         .palette-controls {
@@ -290,49 +288,18 @@
             border-color: #0056b3;
         }
 
-        /* Diff method dropdown button */
-        .diff-method-btn {
-            font-size: 0.75rem;
-            white-space: nowrap;
-        }
-        .diff-method-btn .fa-caret-down {
-            transition: transform 0.15s ease;
-        }
-        .diff-method-btn.expanded .fa-caret-down {
-            transform: rotate(180deg);
-        }
-        .diff-method-dropdown {
-            display: none;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: rgba(0,0,0,0.05);
-            border-radius: 0.25rem;
-        }
-        .diff-method-dropdown.visible {
-            display: block;
-        }
-        /* Dither algorithm grid */
-        .dither-btn-group {
+        /* Dither method navigation */
+        .dither-nav {
             display: flex;
-            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
             gap: 0.25rem;
         }
-        .dither-btn {
-            padding: 0.25rem 0.5rem;
+        .dither-method-label {
             font-size: 0.75rem;
-            background: #495057;
-            border: 1px solid #6c757d;
-            color: #fff;
-            border-radius: 0.25rem;
-            cursor: pointer;
+            min-width: 90px;
+            text-align: center;
             white-space: nowrap;
-        }
-        .dither-btn:hover {
-            background: #5a6268;
-        }
-        .dither-btn.active {
-            background: #007bff;
-            border-color: #0056b3;
         }
 
         /* System selector sidebar - always visible on desktop */
@@ -570,11 +537,12 @@
 
         /* Palette swatches */
         .palette-swatch {
-            display: inline-block;
-            width: 2em;
+            display: block;
+            width: 100%;
             height: 1.5em;
             border: 1px solid #333;
-            margin: 2px;
+            margin-bottom: 2px;
+            break-inside: avoid;
         }
         .palette-swatch-clickable {
             cursor: pointer;
@@ -636,9 +604,15 @@
                 gap: 0.75rem;
             }
             .palette-swatches-vertical {
+                column-count: auto;
+                display: flex;
                 flex-direction: row;
                 flex-wrap: wrap;
-                max-height: none;
+                gap: 2px;
+            }
+            .palette-swatch {
+                width: 2em;
+                margin-bottom: 0;
             }
         }
         @media (max-width: 400px) {
@@ -649,6 +623,75 @@
                 width: 100%;
                 text-align: center;
             }
+        }
+
+        /* Animation controls */
+        .animation-controls {
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 0.25rem;
+            margin-top: 0.5rem;
+        }
+        .animation-controls.visible {
+            display: flex;
+        }
+        .animation-controls .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+        }
+        .animation-controls .frame-slider {
+            flex: 1;
+            min-width: 100px;
+        }
+        .animation-controls .frame-counter {
+            font-size: 0.75rem;
+            color: #6c757d;
+            white-space: nowrap;
+            min-width: 50px;
+            text-align: center;
+        }
+        .animation-badge {
+            display: none;
+            font-size: 0.7rem;
+            background: #28a745;
+            color: white;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.25rem;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .animation-badge.visible {
+            display: inline-block;
+        }
+        .processing-progress {
+            display: none;
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+        .processing-progress.visible {
+            display: inline;
+        }
+        .processing-progress .progress {
+            height: 4px;
+            width: 100px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+        /* Palette lock checkbox for animations */
+        .palette-consistency-option {
+            display: none;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
+        .palette-consistency-option.visible {
+            display: block;
+        }
+        .palette-consistency-option label {
+            cursor: pointer;
         }
 
     </style>
@@ -662,15 +705,16 @@
             <a class="navbar-brand text-dark" href="#">DITHERTRON 2.0</a>
             <div class="navbar-actions ml-auto">
                 <input type="file" id="imageUpload" class="file-input-sm">
-                <a class="btn btn-secondary btn-sm dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
-                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    Select an example
-                </a>
-                <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" id="examplesMenu">
-                </div>
+                <button id="prevExampleBtn" class="btn btn-secondary btn-sm" title="Previous example">
+                    <i class="fa fa-chevron-left"></i>
+                </button>
+                <button id="nextExampleBtn" class="btn btn-secondary btn-sm" title="Next example">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
                 <span class="navbar-divider"></span>
                 <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
-                    title="Download a PNG image">PNG <i class="fa fa-download"></i></button>
+                    title="Download image"><span id="downloadBtnText">PNG</span> <i class="fa fa-download"></i></button>
+                <span id="animationBadge" class="animation-badge">GIF</span>
                 <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
                     title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                 <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
@@ -735,6 +779,20 @@
                         <canvas id="destcanvas" class="rendered-canvas"></canvas>
                     </div>
                 </div>
+                <!-- Animation Controls -->
+                <div id="animationControls" class="animation-controls">
+                    <button id="playPauseBtn" class="btn btn-sm btn-secondary" title="Play/Pause animation">
+                        <i class="fa fa-play"></i>
+                    </button>
+                    <input type="range" id="frameSlider" class="frame-slider" min="0" value="0" step="1">
+                    <span id="frameCounter" class="frame-counter">1 / 1</span>
+                    <span id="processingProgress" class="processing-progress">
+                        Processing: <span id="progressText">0%</span>
+                        <div class="progress">
+                            <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </span>
+                </div>
                 <div class="column-bottom">
                     <div class="alert alert-secondary">
                         <div class="row align-items-center" id="diversitySection">
@@ -767,15 +825,14 @@
                                 <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
                                     data-slider-max="100" data-slider-value="75" />
                             </div>
-                            <div class="col-sm-4 col-md-4 text-right">
-                                <button type="button" class="btn btn-sm btn-outline-secondary diff-method-btn" id="diffMethodToggle">
-                                    <span id="diffMethodLabel">Floyd-Steinberg</span> <i class="fa fa-caret-down"></i>
+                            <div class="col-sm-4 col-md-4 text-right dither-nav">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="prevDitherBtn" title="Previous dither method">
+                                    <i class="fa fa-chevron-left"></i>
                                 </button>
-                            </div>
-                        </div>
-                        <div class="diff-method-dropdown" id="diffMethodDropdown">
-                            <div class="dither-btn-group" id="ditherButtonGroup" role="group">
-                                <!-- Dither buttons populated by JS -->
+                                <span id="diffMethodLabel" class="dither-method-label">Floyd-Steinberg</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="nextDitherBtn" title="Next dither method">
+                                    <i class="fa fa-chevron-right"></i>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -789,6 +846,12 @@
                     <div id="targetFormatInfo" class="format-info"></div>
                     <div id="paletteControls" class="palette-controls"></div>
                     <div id="paletteSwatches" class="palette-swatches-vertical"></div>
+                    <div id="paletteConsistencyOption" class="palette-consistency-option">
+                        <label>
+                            <input type="checkbox" id="consistentPaletteCheckbox" checked>
+                            Consistent palette
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -809,7 +872,7 @@
         <a href="https://github.com/sehugg/dithertron#dithertron" target="_github">README</a>
         <span class="footer-separator">|</span>
         <div class="dropdown d-inline-block">
-            <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Books</a>
+            <a href="#" class="dropdown-toggle dropup-caret" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Books</a>
             <div class="dropdown-menu dropdown-menu-right">
                 <a class="dropdown-item" target="_book_a2600"
                     href="https://www.amazon.com/gp/product/1541021304/ref=as_li_qf_sp_asin_il_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=B01N4DSRIZ">

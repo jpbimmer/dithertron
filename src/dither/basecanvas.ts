@@ -89,13 +89,19 @@ export class BaseDitheringCanvas {
         var valid = this.getValidColors(offset);
         var palidx = this.getClosest(this.tmp2[0], valid);
         var rgbimg = this.pal[palidx];
-        // compute error and distribute to neighbors
-        var err = getRGBADiff(rgbref, rgbimg);
+        // compute error between adjusted pixel and chosen color, then distribute to neighbors
+        var err = getRGBADiff(this.tmp2[0], rgbimg);
+        var x = offset % this.width;
+        var y = Math.floor(offset / this.width);
         for (var i = 0; i < 3; i++) {
-            var k = (this.err[errofs + i] + err[i]) * this.diffuse;
-            // TODO: don't wrap off right edge?
+            var k = err[i] * this.diffuse;
             this.ditherfn.forEach((df) => {
-                this.err[errofs + i + (df[0] + df[1] * this.width) * 3] += k * df[2];
+                // Check bounds to prevent wrapping artifacts
+                var targetX = x + df[0];
+                var targetY = y + df[1];
+                if (targetX >= 0 && targetX < this.width && targetY >= 0 && targetY < this.height) {
+                    this.err[errofs + i + (df[0] + df[1] * this.width) * 3] += k * df[2];
+                }
             });
             this.err[errofs + i] = 0; // reset this pixel's error
         }
@@ -210,9 +216,16 @@ export abstract class TwoColor_Canvas extends BasicParamDitherCanvas {
         var histo = new Uint32Array(256);
         // pixel overlap in 8x8 window
         var b = this.border; // border
+        // Calculate pixel coordinates for bounds checking
+        var baseX = col * this.w;
+        var baseY = row * this.h;
         for (var y = -b; y < this.h + b; y++) {
+            var pixelY = baseY + y;
+            if (pixelY < 0 || pixelY >= this.height) continue;
             var o = offset + y * this.width;
             for (var x = -b; x < this.w + b; x++) {
+                var pixelX = baseX + x;
+                if (pixelX < 0 || pixelX >= this.width) continue;
                 var c1 = this.indexed[o + x] | 0;
                 histo[c1] += 100;
                 var c2 = this.getClosest(this.alt[o + x] | 0, colors);

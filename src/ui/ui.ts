@@ -1,5 +1,5 @@
 import { SYSTEMS, SYSTEM_LOOKUP } from "../settings/systems";
-import { DitherSetting, DithertronSettings, PixelsAvailableMessage } from "../common/types";
+import { DitherSetting, DithertronSettings, PixelsAvailableMessage, ProcessedFrame, GifFrameData } from "../common/types";
 import { SYSTEM_CATEGORIES, findSystemCategory, SystemButton, SystemCategory } from "../settings/system-categories";
 
 import * as exportfuncs from "../export/exportfuncs";
@@ -11,6 +11,9 @@ import { calculateExpandedDimensions, ExpandedDimensions } from '../common/dimen
 import pica from 'pica';
 import { saveAs } from 'file-saver';
 import { EXAMPLE_IMAGES } from "./sampleimages";
+import { isGifFile, loadGifFromFile, ParsedAnimatedGif } from "../gif/gifParser";
+import { animationState, AnimationStateManager } from "../gif/animationState";
+import { exportAnimatedGif } from "../gif/gifEncoder";
 
 var cropper : Cropper;
 var cropEnabled = false; // Crop tool is disabled by default
@@ -27,6 +30,11 @@ var originalPalette: Uint32Array | null = null;
 var paletteModified = false;
 var optimalPaletteCaptured = false; // Track if we've captured the optimal palette from worker
 var paletteLocked = false; // Track if palette is locked (prevents regeneration on crop changes)
+
+// Animation state
+var isAnimationMode = false;
+var animationProcessingAborted = false;
+var consistentPalette = true; // Use same palette across all frames
 
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
@@ -82,6 +90,8 @@ export const dithertron = new ProxyDithertron();
 
 var filenameLoaded: string;
 var presetLoaded: string;
+var currentExampleIndex: number = 0;
+var currentDitherIndex: number = 0;
 
 const ALL_DITHER_SETTINGS: DitherSetting[] = [
     { name: "Floyd-Steinberg", kernel: kernels.FLOYD },
@@ -117,16 +127,13 @@ function populateErrorFuncButtons() {
     });
 }
 
-function populateDitherButtons() {
-    const container = $('#ditherButtonGroup');
-    container.empty();
-    ALL_DITHER_SETTINGS.forEach((dset, index) => {
-        const btn = $('<button type="button" class="dither-btn"></button>')
-            .text(dset.name)
-            .attr('data-dither-index', index);
-        if (index === 0) btn.addClass('active');
-        container.append(btn);
-    });
+function selectDitherByIndex(index: number) {
+    if (index < 0) index = ALL_DITHER_SETTINGS.length - 1;
+    if (index >= ALL_DITHER_SETTINGS.length) index = 0;
+    currentDitherIndex = index;
+    $('#diffMethodLabel').text(ALL_DITHER_SETTINGS[index].name);
+    if (isAnimationMode) reprocessAnimation();
+    else resetImage();
 }
 
 // Track active sidebar tab
@@ -616,23 +623,6 @@ function scrollSystemIntoView(sysId: string) {
     }
 }
 
-// Navigate dither methods by offset (for left/right arrow key navigation)
-function selectDitherMethodByOffset(offset: number) {
-    const buttons = $('.dither-btn');
-    if (buttons.length === 0) return;
-
-    const activeBtn = $('.dither-btn.active');
-    let currentIndex = activeBtn.length > 0 ? buttons.index(activeBtn) : -1;
-
-    let newIndex = currentIndex + offset;
-
-    // Wrap around
-    if (newIndex < 0) newIndex = buttons.length - 1;
-    if (newIndex >= buttons.length) newIndex = 0;
-
-    // Trigger click on the new button
-    $(buttons[newIndex]).trigger('click');
-}
 
 //
 
@@ -694,6 +684,31 @@ function drawRGBA(dest: HTMLCanvasElement, arr: Uint32Array) {
         // TODO: source array is too long when switching
     }
 }
+
+function updateCanvasDisplaySize() {
+    const container = document.querySelector('.rendered-container') as HTMLElement;
+    if (!container || !destCanvas) return;
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    if (containerWidth === 0 || containerHeight === 0) return;
+
+    const containerAR = containerWidth / containerHeight;
+
+    // Get canvas display aspect ratio (includes scaleX for non-square pixels)
+    const scaleX = dithertron.settings?.scaleX || 1;
+    const canvasAR = (destCanvas.width * scaleX) / destCanvas.height;
+
+    if (canvasAR > containerAR) {
+        // Canvas is relatively wider - fit to container width
+        destCanvas.style.width = '100%';
+        destCanvas.style.height = 'auto';
+    } else {
+        // Canvas is relatively taller - fit to container height
+        destCanvas.style.width = 'auto';
+        destCanvas.style.height = '100%';
+    }
+}
 function applyBrightness(imageData: Uint32Array, bright: number, bias: number, sat: number, gamma: number) {
     bright *= 1;
     bias *= 1;
@@ -726,12 +741,8 @@ function reprocessImage() {
 }
 
 function resetImage() {
-    // Read dither selection from active button
-    const activeDitherBtn = $('.dither-btn.active');
-    if (activeDitherBtn.length > 0) {
-        const ditherIndex = parseInt(activeDitherBtn.attr('data-dither-index') || '0');
-        dithertron.settings.ditherfn = ALL_DITHER_SETTINGS[ditherIndex].kernel;
-    }
+    // Read dither selection from current index
+    dithertron.settings.ditherfn = ALL_DITHER_SETTINGS[currentDitherIndex].kernel;
     // Read error function from active button
     const activeErrorBtn = $('.error-func-btn.active');
     if (activeErrorBtn.length > 0) {
@@ -768,7 +779,8 @@ function resetDitherSliders() {
     ($('#noiseSlider') as any).slider('setValue', 5);
     ($('#diffuseSlider') as any).slider('setValue', 75);
     // Reset dither algorithm to first option (Floyd-Steinberg)
-    $('.dither-btn').removeClass('active').first().addClass('active');
+    currentDitherIndex = 0;
+    $('#diffMethodLabel').text(ALL_DITHER_SETTINGS[0].name);
     resetImage();
 }
 
@@ -810,6 +822,7 @@ function convertImage() {
     // Update aspect ratio for display
     const pixelAspect = dithertron.settings.scaleX || 1;
     (destCanvas.style as any).aspectRatio = (expandedDims.width * pixelAspect / expandedDims.height).toString();
+    updateCanvasDisplaySize();
 
     // Update system info to show current dimensions
     showSystemInfo(dithertron.settings);
@@ -995,6 +1008,303 @@ function resetPalette() {
     resetImage();
 }
 
+// Animation functions
+function enterAnimationMode(gifData: ParsedAnimatedGif): void {
+    isAnimationMode = true;
+    animationProcessingAborted = false;
+
+    // Set source frames in animation state manager
+    animationState.setSourceFrames(gifData.frames);
+
+    // Update UI to show animation mode
+    $('#animationControls').addClass('visible');
+    $('#animationBadge').addClass('visible');
+    $('#downloadBtnText').text('GIF');
+    $('#paletteConsistencyOption').addClass('visible');
+
+    // Set up frame slider
+    const frameCount = animationState.getFrameCount();
+    $('#frameSlider').attr('max', frameCount - 1).val(0);
+    updateFrameCounter(0);
+
+    // Set up callbacks
+    animationState.setCallbacks(
+        onFrameProcessed,
+        onProcessingProgress,
+        onPlaybackFrame
+    );
+}
+
+function exitAnimationMode(): void {
+    isAnimationMode = false;
+    animationProcessingAborted = true;
+    animationState.reset();
+
+    // Update UI to hide animation mode
+    $('#animationControls').removeClass('visible');
+    $('#animationBadge').removeClass('visible');
+    $('#downloadBtnText').text('PNG');
+    $('#paletteConsistencyOption').removeClass('visible');
+    $('#processingProgress').removeClass('visible');
+}
+
+function updateFrameCounter(frameIndex: number): void {
+    const total = animationState.getFrameCount();
+    $('#frameCounter').text(`${frameIndex + 1} / ${total}`);
+}
+
+function onFrameProcessed(frameIndex: number, frame: ProcessedFrame): void {
+    // Update display if this is the currently viewed frame
+    if (frameIndex === animationState.getCurrentFrameIndex()) {
+        drawRGBA(destCanvas, frame.img);
+        updatePaletteSwatches(frame.pal);
+    }
+}
+
+function onProcessingProgress(progress: number, current: number, total: number): void {
+    const percent = Math.round(progress * 100);
+    $('#progressText').text(`${percent}%`);
+    $('#progressBar').css('width', `${percent}%`);
+
+    if (progress < 1) {
+        $('#processingProgress').addClass('visible');
+    } else {
+        $('#processingProgress').removeClass('visible');
+    }
+}
+
+function onPlaybackFrame(frameIndex: number): void {
+    // Update frame slider
+    $('#frameSlider').val(frameIndex);
+    updateFrameCounter(frameIndex);
+
+    // Display the frame
+    const frame = animationState.getProcessedFrame(frameIndex);
+    if (frame) {
+        drawRGBA(destCanvas, frame.img);
+        updatePaletteSwatches(frame.pal);
+    }
+}
+
+function togglePlayback(): void {
+    const isPlaying = animationState.togglePlayback();
+    updatePlayPauseButton(isPlaying);
+}
+
+function updatePlayPauseButton(isPlaying: boolean): void {
+    const icon = isPlaying ? 'fa-pause' : 'fa-play';
+    $('#playPauseBtn i').removeClass('fa-play fa-pause').addClass(icon);
+}
+
+function seekToFrame(frameIndex: number): void {
+    // Pause playback when seeking manually
+    if (animationState.isPlaying()) {
+        animationState.pause();
+        updatePlayPauseButton(false);
+    }
+
+    animationState.seekToFrame(frameIndex);
+    updateFrameCounter(frameIndex);
+
+    const frame = animationState.getProcessedFrame(frameIndex);
+    if (frame) {
+        drawRGBA(destCanvas, frame.img);
+        updatePaletteSwatches(frame.pal);
+    }
+}
+
+async function processAnimationFrames(): Promise<void> {
+    if (!isAnimationMode) return;
+
+    animationProcessingAborted = false;
+    animationState.startProcessing();
+    $('#processingProgress').addClass('visible');
+
+    const frameCount = animationState.getFrameCount();
+    let lockedPalette: Uint32Array | null = null;
+
+    for (let i = 0; i < frameCount; i++) {
+        if (animationProcessingAborted) {
+            break;
+        }
+
+        const sourceFrame = animationState.getSourceFrame(i);
+        if (!sourceFrame) continue;
+
+        // Process this frame
+        const processedFrame = await processFrame(sourceFrame, i, lockedPalette);
+
+        if (animationProcessingAborted) {
+            break;
+        }
+
+        animationState.addProcessedFrame(processedFrame);
+
+        // Lock palette after first frame if consistent palette is enabled
+        if (i === 0 && consistentPalette && processedFrame.pal) {
+            lockedPalette = new Uint32Array(processedFrame.pal);
+        }
+    }
+
+    if (!animationProcessingAborted) {
+        animationState.finishProcessing();
+        // Update slider max to processed frames
+        $('#frameSlider').attr('max', animationState.getProcessedFrameCount() - 1);
+    }
+}
+
+function processFrame(
+    sourceFrame: GifFrameData,
+    frameIndex: number,
+    lockedPalette: Uint32Array | null
+): Promise<ProcessedFrame> {
+    return new Promise((resolve) => {
+        // Create a temporary canvas for this frame
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = sourceFrame.width;
+        tempCanvas.height = sourceFrame.height;
+        const ctx = tempCanvas.getContext('2d')!;
+
+        // Draw source frame pixels to temp canvas
+        const imageData = ctx.createImageData(sourceFrame.width, sourceFrame.height);
+        const data = new Uint32Array(imageData.data.buffer);
+        data.set(sourceFrame.pixels);
+        ctx.putImageData(imageData, 0, 0);
+
+        // Calculate expanded dimensions for this frame
+        const expandedDims = calculateExpandedDimensions(
+            dithertron.settings,
+            { width: sourceFrame.width, height: sourceFrame.height }
+        );
+
+        // Create resize canvas
+        const frameResizeCanvas = document.createElement('canvas');
+        frameResizeCanvas.width = expandedDims.width;
+        frameResizeCanvas.height = expandedDims.height;
+
+        // Resize the frame
+        pica().resize(tempCanvas, frameResizeCanvas, {}).then(() => {
+            // Apply brightness/contrast/saturation adjustments
+            const resizedData = new Uint32Array(
+                frameResizeCanvas.getContext('2d')!
+                    .getImageData(0, 0, frameResizeCanvas.width, frameResizeCanvas.height).data.buffer
+            );
+
+            let bright = (parseFloat(contrastSlider.value) - 50) / 100 + 1.0;
+            let bias = (parseFloat(brightSlider.value) - bright * 50) * (128 / 50);
+            let sat = (parseFloat(saturationSlider.value) - 50) / 50 + 1.0;
+            applyBrightness(resizedData, bright, bias, sat, 1);
+
+            // Create a worker for this frame
+            const frameWorker = new Worker("./gen/worker.js");
+
+            frameWorker.onmessage = (ev) => {
+                const msg = ev.data as PixelsAvailableMessage;
+                if (msg && msg.final) {
+                    frameWorker.terminate();
+
+                    resolve({
+                        img: msg.img,
+                        indexed: msg.indexed,
+                        pal: msg.pal,
+                        delay: sourceFrame.delay
+                    });
+                }
+            };
+
+            // Configure worker settings
+            const frameSettings = { ...dithertron.settings };
+            frameSettings.ditherfn = dithertron.settings.ditherfn;
+            frameSettings.errfn = dithertron.settings.errfn;
+            frameSettings.diffuse = parseFloat(diffuseSlider.value) / 100;
+            frameSettings.ordered = parseFloat(orderedSlider.value) / 100;
+            frameSettings.noise = parseFloat(noiseSlider.value);
+            frameSettings.paletteDiversity = parseFloat(diversitySlider.value) / 200 + 0.75;
+
+            // Use locked palette if available
+            if (lockedPalette) {
+                frameSettings.pal = lockedPalette;
+            }
+
+            // Override dimensions for this frame
+            frameSettings.width = expandedDims.width;
+            frameSettings.height = expandedDims.height;
+
+            frameWorker.postMessage({ cmd: "setSettings", data: frameSettings });
+            frameWorker.postMessage({ cmd: "setSourceImage", data: resizedData });
+            frameWorker.postMessage({ cmd: "restart" });
+        });
+    });
+}
+
+async function loadAnimatedGif(file: File): Promise<void> {
+    try {
+        const gifData = await loadGifFromFile(file);
+
+        if (!gifData.isAnimated) {
+            // Single frame GIF - treat as regular image
+            exitAnimationMode();
+            const url = URL.createObjectURL(file);
+            loadSourceImage(url);
+            return;
+        }
+
+        // Enter animation mode
+        enterAnimationMode(gifData);
+
+        // Set first frame as source for initial display
+        const firstFrame = gifData.frames[0];
+        if (firstFrame) {
+            // Create a blob URL from the first frame for cropper
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = firstFrame.width;
+            tempCanvas.height = firstFrame.height;
+            const ctx = tempCanvas.getContext('2d')!;
+
+            const imageData = ctx.createImageData(firstFrame.width, firstFrame.height);
+            const data = new Uint32Array(imageData.data.buffer);
+            data.set(firstFrame.pixels);
+            ctx.putImageData(imageData, 0, 0);
+
+            // Use the first frame as source image (for crop preview)
+            tempCanvas.toBlob((blob) => {
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    loadSourceImage(url);
+
+                    // Start processing all frames after source image loads
+                    setTimeout(() => {
+                        processAnimationFrames();
+                    }, 500);
+                }
+            }, 'image/png');
+        }
+    } catch (err) {
+        console.error("Failed to load animated GIF:", err);
+        // Fall back to regular image loading
+        exitAnimationMode();
+        const url = URL.createObjectURL(file);
+        loadSourceImage(url);
+    }
+}
+
+function reprocessAnimation(): void {
+    if (!isAnimationMode) return;
+
+    // Abort current processing
+    animationProcessingAborted = true;
+
+    // Clear processed frames and restart
+    animationState.clearProcessedFrames();
+    animationState.pause();
+    updatePlayPauseButton(false);
+
+    // Restart processing after a brief delay
+    setTimeout(() => {
+        processAnimationFrames();
+    }, 100);
+}
+
 function initializePaletteFromSystem(sys: DithertronSettings) {
     // Unlock palette when switching systems
     if (paletteLocked) {
@@ -1084,9 +1394,14 @@ function setTargetSystem(sys: DithertronSettings) {
     resizeCanvas.height = destCanvas.height = sys.height;
     let pixelAspect = sys.scaleX || 1;
     (destCanvas.style as any).aspectRatio = (sys.width * pixelAspect / sys.height).toString();
+    updateCanvasDisplaySize();
     $("#noiseSection").css('display', showNoise ? 'flex' : 'none');
     $("#diversitySection").css('display', sys.reduce ? 'flex' : 'none');
-    if (cropper) {
+
+    // Reprocess animation if in animation mode
+    if (isAnimationMode) {
+        reprocessAnimation();
+    } else if (cropper) {
         loadSourceImage((cropper as any).url);
     }
     updateURL();
@@ -1114,15 +1429,55 @@ function downloadNativeFormat() {
         saveAs(blob, getFilenamePrefix() + ".bin");
     }
 }
-function downloadImageFormat() {
-    destCanvas.toBlob((blob) => {
-        saveAs(blob, getFilenamePrefix() + ".png");
-    }, "image/png");
+
+// Create a canvas at the rendered display size (accounting for scaleX for non-square pixels)
+function createRenderedCanvas(): HTMLCanvasElement {
+    const scaleX = dithertron.settings?.scaleX || 1;
+    const renderedWidth = Math.round(destCanvas.width * scaleX);
+    const renderedHeight = destCanvas.height;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = renderedWidth;
+    tempCanvas.height = renderedHeight;
+
+    const ctx = tempCanvas.getContext('2d');
+    if (ctx) {
+        // Disable image smoothing for crisp pixel art scaling
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(destCanvas, 0, 0, renderedWidth, renderedHeight);
+    }
+
+    return tempCanvas;
+}
+
+async function downloadImageFormat() {
+    if (isAnimationMode && animationState.getProcessedFrameCount() > 1) {
+        // Export as animated GIF
+        try {
+            const frames = animationState.getAllProcessedFrames();
+            const width = destCanvas.width;
+            const height = destCanvas.height;
+            const scaleX = dithertron.settings?.scaleX || 1;
+
+            const blob = await exportAnimatedGif(frames, width, height, { scaleX });
+            saveAs(blob, getFilenamePrefix() + ".gif");
+        } catch (err) {
+            console.error("Failed to export animated GIF:", err);
+            alert("Failed to export animated GIF. Please try again.");
+        }
+    } else {
+        // Export as PNG
+        const renderedCanvas = createRenderedCanvas();
+        renderedCanvas.toBlob((blob) => {
+            saveAs(blob, getFilenamePrefix() + ".png");
+        }, "image/png");
+    }
 }
 async function copyImageToClipboard() {
     try {
+        const renderedCanvas = createRenderedCanvas();
         const blob = await new Promise<Blob>((resolve, reject) => {
-            destCanvas.toBlob((b) => {
+            renderedCanvas.toBlob((b) => {
                 if (b) resolve(b);
                 else reject(new Error("Failed to create blob"));
             }, "image/png");
@@ -1216,30 +1571,59 @@ export function startUI() {
         // Test canvas access early to warn users about fingerprinting protection
         testCanvasAccess();
 
+        // Set up ResizeObserver to handle container size changes
+        const renderedContainer = document.querySelector('.rendered-container');
+        if (renderedContainer) {
+            const resizeObserver = new ResizeObserver(() => {
+                updateCanvasDisplaySize();
+            });
+            resizeObserver.observe(renderedContainer);
+        }
+
         document.querySelector('input[type="file"]').addEventListener('change', function (event) {
             var inputElement = event.target as HTMLInputElement;
             var file = inputElement.files && inputElement.files[0];
             if (file) {
                 filenameLoaded = file.name;
                 presetLoaded = "";
-                var url = URL.createObjectURL(file);
-                loadSourceImage(url);
+
+                // Check if it's a GIF file
+                if (isGifFile(file)) {
+                    loadAnimatedGif(file);
+                } else {
+                    // Exit animation mode if we were in it
+                    if (isAnimationMode) {
+                        exitAnimationMode();
+                    }
+                    var url = URL.createObjectURL(file);
+                    loadSourceImage(url);
+                }
             }
         });
 
-        EXAMPLE_IMAGES.forEach((filename) => {
-            $('<a class="dropdown-item" href="#"></a>').text(filename).appendTo("#examplesMenu");
-        });
-
-        $("#examplesMenu").click((e) => {
-            var filename = $(e.target).text();
+        // Example image navigation
+        function loadExampleByIndex(index: number) {
+            if (index < 0) index = EXAMPLE_IMAGES.length - 1;
+            if (index >= EXAMPLE_IMAGES.length) index = 0;
+            currentExampleIndex = index;
+            const filename = EXAMPLE_IMAGES[index];
             filenameLoaded = presetLoaded = filename;
+            if (isAnimationMode) {
+                exitAnimationMode();
+            }
             loadSourceImage("images/" + filename);
             imageUpload.value = "";
+        }
+
+        $('#prevExampleBtn').on('click', () => {
+            loadExampleByIndex(currentExampleIndex - 1);
+        });
+
+        $('#nextExampleBtn').on('click', () => {
+            loadExampleByIndex(currentExampleIndex + 1);
         });
 
         // Populate button groups
-        populateDitherButtons();
         populateErrorFuncButtons();
         populateSidebarDefaults();
         populateSidebarExtended();
@@ -1265,38 +1649,62 @@ export function startUI() {
         setTargetSystem(currentSystem);
 
         filenameLoaded = presetLoaded = qs['image'] || "seurat.jpg";
+        currentExampleIndex = EXAMPLE_IMAGES.indexOf(filenameLoaded);
+        if (currentExampleIndex < 0) currentExampleIndex = 0;
         loadSourceImage("images/" + filenameLoaded);
 
-        $("#diffuseSlider").on('change', resetImage);
-        $("#orderedSlider").on('change', resetImage);
-        $("#noiseSlider").on('change', resetImage);
-        $("#diversitySlider").on('change', reprocessImage);
-        $("#brightSlider").on('change', reprocessImage);
-        $("#contrastSlider").on('change', reprocessImage);
-        $("#saturationSlider").on('change', reprocessImage);
-        $("#resetSourceSliders").on('click', resetSourceSliders);
-        $("#resetDitherSliders").on('click', resetDitherSliders);
+        $("#diffuseSlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else resetImage();
+        });
+        $("#orderedSlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else resetImage();
+        });
+        $("#noiseSlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else resetImage();
+        });
+        $("#diversitySlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else reprocessImage();
+        });
+        $("#brightSlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else reprocessImage();
+        });
+        $("#contrastSlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else reprocessImage();
+        });
+        $("#saturationSlider").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else reprocessImage();
+        });
+        $("#resetSourceSliders").on('click', () => {
+            resetSourceSliders();
+            if (isAnimationMode) reprocessAnimation();
+        });
+        $("#resetDitherSliders").on('click', () => {
+            resetDitherSliders();
+            if (isAnimationMode) reprocessAnimation();
+        });
 
         // Error function buttons
         $('#errorFuncGroup').on('click', '.error-func-btn', function() {
             $('.error-func-btn').removeClass('active');
             $(this).addClass('active');
-            resetImage();
+            if (isAnimationMode) reprocessAnimation();
+            else resetImage();
         });
 
-        // Diff method dropdown toggle
-        $('#diffMethodToggle').on('click', function() {
-            $(this).toggleClass('expanded');
-            $('#diffMethodDropdown').toggleClass('visible');
+        // Dither method navigation
+        $('#prevDitherBtn').on('click', () => {
+            selectDitherByIndex(currentDitherIndex - 1);
         });
 
-        // Dither buttons
-        $('#ditherButtonGroup').on('click', '.dither-btn', function() {
-            $('.dither-btn').removeClass('active');
-            $(this).addClass('active');
-            // Update the dropdown label with selected method
-            $('#diffMethodLabel').text($(this).text());
-            resetImage();
+        $('#nextDitherBtn').on('click', () => {
+            selectDitherByIndex(currentDitherIndex + 1);
         });
 
         // System sidebar toggle
@@ -1375,6 +1783,21 @@ export function startUI() {
 
         $("#downloadImageBtn").click(downloadImageFormat);
         $("#copyImageBtn").click(copyImageToClipboard);
+
+        // Animation control event handlers
+        $('#playPauseBtn').on('click', togglePlayback);
+
+        $('#frameSlider').on('input', function() {
+            const frameIndex = parseInt($(this).val() as string);
+            seekToFrame(frameIndex);
+        });
+
+        $('#consistentPaletteCheckbox').on('change', function() {
+            consistentPalette = $(this).is(':checked');
+            if (isAnimationMode) {
+                reprocessAnimation();
+            }
+        });
     });
 
     // print diags (TODO: generate markdown table)

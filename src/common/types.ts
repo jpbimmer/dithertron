@@ -119,3 +119,28 @@ export interface DitherSetting {
 
 export type RGBDistanceFunction = (a:number,b:number) => number;
 
+// GIF Animation Types
+export interface GifFrameData {
+    pixels: Uint32Array;
+    delay: number;
+    width: number;
+    height: number;
+}
+
+export interface ProcessedFrame {
+    img: Uint32Array;
+    indexed: Uint32Array;
+    pal: Uint32Array;
+    delay: number;
+}
+
+export interface AnimationState {
+    frames: GifFrameData[];
+    processedFrames: ProcessedFrame[];
+    currentFrameIndex: number;
+    isAnimated: boolean;
+    isPlaying: boolean;
+    isProcessing: boolean;
+    processingProgress: number;
+}
+

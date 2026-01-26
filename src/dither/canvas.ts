@@ -921,9 +921,16 @@ export class NES_Canvas extends BasicParamDitherCanvas {
         // rank all colors
         var histo = new Uint32Array(16);
         var b = 8; // border (TODO: param)
+        // Calculate pixel coordinates for bounds checking
+        var baseX = col * this.w;
+        var baseY = row * this.h;
         for (var y = -b; y < this.h + b; y++) {
+            var pixelY = baseY + y;
+            if (pixelY < 0 || pixelY >= this.height) continue;
             var o = offset + y * this.width;
             for (var x = -b; x < this.w + b; x++) {
+                var pixelX = baseX + x;
+                if (pixelX < 0 || pixelX >= this.width) continue;
                 // get current color (or reference for 1st time)
                 var c1 = this.indexed[o + x] | 0;
                 histo[c1] += 100;
