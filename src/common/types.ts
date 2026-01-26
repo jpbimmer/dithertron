@@ -142,5 +142,8 @@ export interface AnimationState {
     isPlaying: boolean;
     isProcessing: boolean;
     processingProgress: number;
+    frameProcessingTimes: number[];
+    processingStartTime: number;
+    estimatedTimeRemaining: number;
 }
 

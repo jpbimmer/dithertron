@@ -148,6 +148,7 @@
             padding: 0 0.75rem; /* Match alert panel horizontal padding for alignment */
         }
         .image-container {
+            position: relative;
             width: 100%;
             height: 100%;
             display: flex;
@@ -653,18 +654,42 @@
             min-width: 50px;
             text-align: center;
         }
-        .animation-badge {
+        .processing-control {
             display: none;
-            font-size: 0.7rem;
-            background: #28a745;
-            color: white;
-            padding: 0.1rem 0.4rem;
-            border-radius: 0.25rem;
-            margin-left: 0.5rem;
-            vertical-align: middle;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
         }
-        .animation-badge.visible {
-            display: inline-block;
+        .source-playback-controls {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem;
+            margin-top: 0.5rem;
+        }
+        .source-playback-controls.visible {
+            display: flex;
+        }
+        .source-frame-counter {
+            font-size: 0.75rem;
+            color: #6c757d;
+            min-width: 40px;
+            text-align: center;
+        }
+        .source-gif-canvas {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .source-gif-canvas.visible {
+            display: block;
         }
         .processing-progress {
             display: none;
@@ -714,7 +739,8 @@
                 <span class="navbar-divider"></span>
                 <button id="downloadImageBtn" type="button" class="btn btn-secondary btn-sm"
                     title="Download image"><span id="downloadBtnText">PNG</span> <i class="fa fa-download"></i></button>
-                <span id="animationBadge" class="animation-badge">GIF</span>
+                <button id="downloadFrameBtn" type="button" class="btn btn-secondary btn-sm" style="display:none;"
+                    title="Download current frame as PNG">Frame PNG <i class="fa fa-download"></i></button>
                 <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
                     title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                 <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
@@ -730,7 +756,15 @@
                 <div class="column-image">
                     <div class="image-container">
                         <img class="crop" id="srcimage">
+                        <canvas id="sourceGifCanvas" class="source-gif-canvas"></canvas>
                     </div>
+                </div>
+                <!-- Source playback controls -->
+                <div id="sourcePlaybackControls" class="source-playback-controls">
+                    <button id="sourcePlayPauseBtn" class="btn btn-sm btn-secondary">
+                        <i class="fa fa-play"></i>
+                    </button>
+                    <span id="sourceFrameCounter" class="source-frame-counter">1 / 1</span>
                 </div>
                 <div class="column-bottom">
                     <div class="alert alert-secondary">
@@ -792,6 +826,15 @@
                             <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
                         </div>
                     </span>
+                </div>
+                <!-- Processing Control -->
+                <div id="processingControl" class="processing-control" style="display:none;">
+                    <button id="processAllFramesBtn" class="btn btn-primary btn-sm">
+                        <i class="fa fa-cogs"></i> Process <span id="remainingFrameCount">0</span> Frames
+                    </button>
+                    <button id="cancelProcessingBtn" class="btn btn-secondary btn-sm" style="display:none;">
+                        <i class="fa fa-stop"></i> Cancel
+                    </button>
                 </div>
                 <div class="column-bottom">
                     <div class="alert alert-secondary">

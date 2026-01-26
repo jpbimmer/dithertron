@@ -24,7 +24,10 @@ export class AnimationStateManager {
             isAnimated: false,
             isPlaying: false,
             isProcessing: false,
-            processingProgress: 0
+            processingProgress: 0,
+            frameProcessingTimes: [],
+            processingStartTime: 0,
+            estimatedTimeRemaining: 0
         };
     }
 
@@ -93,11 +96,31 @@ export class AnimationStateManager {
         this.state.isProcessing = true;
         this.state.processingProgress = 0;
         this.state.processedFrames = [];
+        this.state.frameProcessingTimes = [];
+        this.state.processingStartTime = performance.now();
+        this.state.estimatedTimeRemaining = 0;
     }
 
-    addProcessedFrame(frame: ProcessedFrame): void {
+    addProcessedFrame(frame: ProcessedFrame, processingTimeMs?: number): void {
         this.state.processedFrames.push(frame);
-        this.state.processingProgress = this.state.processedFrames.length / this.state.frames.length;
+
+        // Track processing time if provided
+        if (processingTimeMs !== undefined) {
+            this.state.frameProcessingTimes.push(processingTimeMs);
+
+            // Calculate weighted progress based on processing times
+            const avgTimePerFrame = this.calculateAverageTime();
+            const framesRemaining = this.state.frames.length - this.state.processedFrames.length;
+            this.state.estimatedTimeRemaining = avgTimePerFrame * framesRemaining;
+
+            // Progress is now time-based, not count-based
+            const totalEstimatedTime = avgTimePerFrame * this.state.frames.length;
+            const timeElapsed = performance.now() - this.state.processingStartTime;
+            this.state.processingProgress = Math.min(1, timeElapsed / totalEstimatedTime);
+        } else {
+            // Fallback to count-based progress if no timing info
+            this.state.processingProgress = this.state.processedFrames.length / this.state.frames.length;
+        }
 
         if (this.onProgress) {
             this.onProgress(
@@ -110,6 +133,22 @@ export class AnimationStateManager {
         if (this.onFrameUpdate) {
             this.onFrameUpdate(this.state.processedFrames.length - 1, frame);
         }
+    }
+
+    private calculateAverageTime(): number {
+        const times = this.state.frameProcessingTimes;
+        if (times.length === 0) return 0;
+
+        // Weighted average: recent frames weighted more heavily
+        // First frame gets special treatment (often 2-3x slower)
+        const weights = times.map((_, i) => i === 0 ? 2 : 1);
+        const weightedSum = times.reduce((sum, time, i) => sum + time * weights[i], 0);
+        const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+        return weightedSum / totalWeight;
+    }
+
+    getEstimatedTimeRemaining(): number {
+        return this.state.estimatedTimeRemaining;
     }
 
     finishProcessing(): void {

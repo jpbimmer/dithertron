@@ -36,6 +36,13 @@ var isAnimationMode = false;
 var animationProcessingAborted = false;
 var consistentPalette = true; // Use same palette across all frames
 
+// Source GIF playback state
+var sourceGifPlayback = {
+    isPlaying: false,
+    currentFrame: 0,
+    timer: null as number | null
+};
+
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
 var saturationSlider = document.getElementById('saturationSlider') as HTMLInputElement;
@@ -987,7 +994,11 @@ function onColorPickerChange() {
 
     // Update the settings palette and re-dither
     dithertron.settings.pal = currentPalette;
-    resetImage();
+    if (isAnimationMode) {
+        reprocessAnimation();
+    } else {
+        resetImage();
+    }
 }
 
 function closeColorPicker() {
@@ -1005,7 +1016,11 @@ function resetPalette() {
 
     // Update settings and re-dither
     dithertron.settings.pal = currentPalette;
-    resetImage();
+    if (isAnimationMode) {
+        reprocessAnimation();
+    } else {
+        resetImage();
+    }
 }
 
 // Animation functions
@@ -1018,9 +1033,10 @@ function enterAnimationMode(gifData: ParsedAnimatedGif): void {
 
     // Update UI to show animation mode
     $('#animationControls').addClass('visible');
-    $('#animationBadge').addClass('visible');
+    $('#downloadFrameBtn').show();
     $('#downloadBtnText').text('GIF');
     $('#paletteConsistencyOption').addClass('visible');
+    $('#sourcePlaybackControls').addClass('visible');
 
     // Set up frame slider
     const frameCount = animationState.getFrameCount();
@@ -1040,12 +1056,23 @@ function exitAnimationMode(): void {
     animationProcessingAborted = true;
     animationState.reset();
 
+    // Stop source playback if active
+    if (sourceGifPlayback.isPlaying) {
+        pauseSourcePlayback();
+    }
+
+    // Ensure source GIF canvas is hidden
+    $('#sourceGifCanvas').removeClass('visible');
+    $('.cropper-container').css('visibility', 'visible');
+
     // Update UI to hide animation mode
     $('#animationControls').removeClass('visible');
-    $('#animationBadge').removeClass('visible');
+    $('#downloadFrameBtn').hide();
     $('#downloadBtnText').text('PNG');
     $('#paletteConsistencyOption').removeClass('visible');
     $('#processingProgress').removeClass('visible');
+    $('#processingControl').hide();
+    $('#sourcePlaybackControls').removeClass('visible');
 }
 
 function updateFrameCounter(frameIndex: number): void {
@@ -1061,9 +1088,20 @@ function onFrameProcessed(frameIndex: number, frame: ProcessedFrame): void {
     }
 }
 
+function formatTime(ms: number): string {
+    const seconds = Math.ceil(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes}m ${secs}s`;
+}
+
 function onProcessingProgress(progress: number, current: number, total: number): void {
     const percent = Math.round(progress * 100);
-    $('#progressText').text(`${percent}%`);
+    const remaining = animationState.getEstimatedTimeRemaining();
+    const eta = remaining > 0 ? formatTime(remaining) : 'calculating...';
+
+    $('#progressText').text(`${percent}% - ${current}/${total} - ETA: ${eta}`);
     $('#progressBar').css('width', `${percent}%`);
 
     if (progress < 1) {
@@ -1113,17 +1151,32 @@ function seekToFrame(frameIndex: number): void {
     }
 }
 
-async function processAnimationFrames(): Promise<void> {
+async function processAnimationFrames(startIndex: number = 0): Promise<void> {
     if (!isAnimationMode) return;
 
     animationProcessingAborted = false;
-    animationState.startProcessing();
+
+    // Only call startProcessing if we're starting from the beginning
+    if (startIndex === 0) {
+        animationState.startProcessing();
+    }
+
     $('#processingProgress').addClass('visible');
+    $('#processAllFramesBtn').hide();
+    $('#cancelProcessingBtn').show();
 
     const frameCount = animationState.getFrameCount();
     let lockedPalette: Uint32Array | null = null;
 
-    for (let i = 0; i < frameCount; i++) {
+    // If we already have processed frames and consistent palette is on, lock the first frame's palette
+    if (startIndex > 0 && consistentPalette) {
+        const firstFrame = animationState.getProcessedFrame(0);
+        if (firstFrame && firstFrame.pal) {
+            lockedPalette = new Uint32Array(firstFrame.pal);
+        }
+    }
+
+    for (let i = startIndex; i < frameCount; i++) {
         if (animationProcessingAborted) {
             break;
         }
@@ -1131,20 +1184,25 @@ async function processAnimationFrames(): Promise<void> {
         const sourceFrame = animationState.getSourceFrame(i);
         if (!sourceFrame) continue;
 
+        // Update remaining count
+        $('#remainingFrameCount').text(frameCount - i);
+
         // Process this frame
-        const processedFrame = await processFrame(sourceFrame, i, lockedPalette);
+        const { frame: processedFrame, timeMs } = await processFrame(sourceFrame, i, lockedPalette);
 
         if (animationProcessingAborted) {
             break;
         }
 
-        animationState.addProcessedFrame(processedFrame);
+        animationState.addProcessedFrame(processedFrame, timeMs);
 
         // Lock palette after first frame if consistent palette is enabled
         if (i === 0 && consistentPalette && processedFrame.pal) {
             lockedPalette = new Uint32Array(processedFrame.pal);
         }
     }
+
+    $('#cancelProcessingBtn').hide();
 
     if (!animationProcessingAborted) {
         animationState.finishProcessing();
@@ -1157,8 +1215,9 @@ function processFrame(
     sourceFrame: GifFrameData,
     frameIndex: number,
     lockedPalette: Uint32Array | null
-): Promise<ProcessedFrame> {
+): Promise<{frame: ProcessedFrame, timeMs: number}> {
     return new Promise((resolve) => {
+        const startTime = performance.now();
         // Create a temporary canvas for this frame
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = sourceFrame.width;
@@ -1203,11 +1262,15 @@ function processFrame(
                 if (msg && msg.final) {
                     frameWorker.terminate();
 
+                    const endTime = performance.now();
                     resolve({
-                        img: msg.img,
-                        indexed: msg.indexed,
-                        pal: msg.pal,
-                        delay: sourceFrame.delay
+                        frame: {
+                            img: msg.img,
+                            indexed: msg.indexed,
+                            pal: msg.pal,
+                            delay: sourceFrame.delay
+                        },
+                        timeMs: endTime - startTime
                     });
                 }
             };
@@ -1235,6 +1298,20 @@ function processFrame(
             frameWorker.postMessage({ cmd: "restart" });
         });
     });
+}
+
+// Process just the first frame for preview purposes (doesn't affect animation state)
+async function processFirstFramePreview(): Promise<void> {
+    if (!isAnimationMode) return;
+
+    const sourceFrame = animationState.getSourceFrame(0);
+    if (!sourceFrame) return;
+
+    const { frame: processedFrame } = await processFrame(sourceFrame, 0, null);
+
+    // Show the processed frame immediately in the rendered area
+    drawRGBA(destCanvas, processedFrame.img);
+    updatePaletteSwatches(processedFrame.pal);
 }
 
 async function loadAnimatedGif(file: File): Promise<void> {
@@ -1272,9 +1349,14 @@ async function loadAnimatedGif(file: File): Promise<void> {
                     const url = URL.createObjectURL(blob);
                     loadSourceImage(url);
 
-                    // Start processing all frames after source image loads
+                    // Show "Process All Frames" button
+                    const totalFrameCount = animationState.getFrameCount();
+                    $('#remainingFrameCount').text(totalFrameCount.toString());
+                    $('#processingControl').show();
+
+                    // Process first frame for preview (so user can see effect of settings)
                     setTimeout(() => {
-                        processAnimationFrames();
+                        processFirstFramePreview();
                     }, 500);
                 }
             }, 'image/png');
@@ -1288,20 +1370,95 @@ async function loadAnimatedGif(file: File): Promise<void> {
     }
 }
 
+function toggleSourcePlayback(): void {
+    if (sourceGifPlayback.isPlaying) {
+        pauseSourcePlayback();
+    } else {
+        playSourcePlayback();
+    }
+}
+
+function playSourcePlayback(): void {
+    if (!isAnimationMode) return;
+    sourceGifPlayback.isPlaying = true;
+    sourceGifPlayback.currentFrame = 0;
+    $('#sourcePlayPauseBtn i').removeClass('fa-play').addClass('fa-pause');
+
+    // Hide cropper container content, show canvas overlay
+    $('.cropper-container').css('visibility', 'hidden');
+    $('#sourceGifCanvas').addClass('visible');
+
+    scheduleNextSourceFrame();
+}
+
+function pauseSourcePlayback(): void {
+    sourceGifPlayback.isPlaying = false;
+    $('#sourcePlayPauseBtn i').removeClass('fa-pause').addClass('fa-play');
+
+    if (sourceGifPlayback.timer) {
+        clearTimeout(sourceGifPlayback.timer);
+        sourceGifPlayback.timer = null;
+    }
+
+    // Show cropper again, hide canvas
+    $('#sourceGifCanvas').removeClass('visible');
+    $('.cropper-container').css('visibility', 'visible');
+}
+
+function scheduleNextSourceFrame(): void {
+    if (!sourceGifPlayback.isPlaying) return;
+
+    const sourceFrame = animationState.getSourceFrame(sourceGifPlayback.currentFrame);
+    if (!sourceFrame) return;
+
+    // Draw frame to canvas
+    const canvas = document.getElementById('sourceGifCanvas') as HTMLCanvasElement;
+    if (!canvas) return;
+
+    canvas.width = sourceFrame.width;
+    canvas.height = sourceFrame.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const imageData = ctx.createImageData(sourceFrame.width, sourceFrame.height);
+    const data = new Uint32Array(imageData.data.buffer);
+    data.set(sourceFrame.pixels);
+    ctx.putImageData(imageData, 0, 0);
+
+    // Update counter
+    $('#sourceFrameCounter').text(`${sourceGifPlayback.currentFrame + 1} / ${animationState.getFrameCount()}`);
+
+    // Advance to next frame
+    sourceGifPlayback.currentFrame = (sourceGifPlayback.currentFrame + 1) % animationState.getFrameCount();
+
+    // Schedule next frame
+    sourceGifPlayback.timer = window.setTimeout(() => scheduleNextSourceFrame(), sourceFrame.delay);
+}
+
 function reprocessAnimation(): void {
     if (!isAnimationMode) return;
 
     // Abort current processing
     animationProcessingAborted = true;
 
-    // Clear processed frames and restart
+    // Clear processed frames
     animationState.clearProcessedFrames();
     animationState.pause();
     updatePlayPauseButton(false);
 
-    // Restart processing after a brief delay
+    // Hide processing progress
+    $('#processingProgress').removeClass('visible');
+    $('#cancelProcessingBtn').hide();
+
+    // Show "Process All Frames" button again
+    const totalFrameCount = animationState.getFrameCount();
+    $('#remainingFrameCount').text(totalFrameCount.toString());
+    $('#processingControl').show();
+    $('#processAllFramesBtn').show();
+
+    // Re-process first frame for preview (so user can see effect of new settings)
     setTimeout(() => {
-        processAnimationFrames();
+        processFirstFramePreview();
     }, 100);
 }
 
@@ -1448,6 +1605,58 @@ function createRenderedCanvas(): HTMLCanvasElement {
     }
 
     return tempCanvas;
+}
+
+function downloadCurrentFrame(): void {
+    if (!isAnimationMode) return;
+
+    const frameIndex = animationState.getCurrentFrameIndex();
+    const currentFrame = animationState.getCurrentProcessedFrame();
+
+    // Use processed frame if available, otherwise use current canvas content (preview)
+    let sourceCanvas: HTMLCanvasElement;
+
+    if (currentFrame) {
+        // Create a temporary canvas with the processed frame data
+        sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = destCanvas.width;
+        sourceCanvas.height = destCanvas.height;
+
+        const ctx = sourceCanvas.getContext('2d');
+        if (ctx) {
+            const imageData = ctx.createImageData(sourceCanvas.width, sourceCanvas.height);
+            const data = new Uint32Array(imageData.data.buffer);
+            data.set(currentFrame.img);
+            ctx.putImageData(imageData, 0, 0);
+        }
+    } else {
+        // Use current destCanvas content (preview frame)
+        sourceCanvas = destCanvas;
+    }
+
+    // Apply scaleX for aspect ratio
+    const scaleX = dithertron.settings?.scaleX || 1;
+    const renderedWidth = Math.round(sourceCanvas.width * scaleX);
+    const renderedHeight = sourceCanvas.height;
+
+    const renderedCanvas = document.createElement('canvas');
+    renderedCanvas.width = renderedWidth;
+    renderedCanvas.height = renderedHeight;
+
+    const renderedCtx = renderedCanvas.getContext('2d');
+    if (renderedCtx) {
+        renderedCtx.imageSmoothingEnabled = false;
+        renderedCtx.drawImage(sourceCanvas, 0, 0, renderedWidth, renderedHeight);
+    }
+
+    // Export as PNG - use "preview" in filename if no processed frames
+    const frameSuffix = currentFrame ? `frame${frameIndex}` : 'preview';
+    const filename = `${getFilenamePrefix()}-${frameSuffix}.png`;
+    renderedCanvas.toBlob((blob) => {
+        if (blob) {
+            saveAs(blob, filename);
+        }
+    }, "image/png");
 }
 
 async function downloadImageFormat() {
@@ -1798,6 +2007,21 @@ export function startUI() {
                 reprocessAnimation();
             }
         });
+
+        // Processing control buttons
+        $('#processAllFramesBtn').on('click', () => {
+            processAnimationFrames(0); // Start from frame 0 - process all frames
+        });
+
+        $('#cancelProcessingBtn').on('click', () => {
+            animationProcessingAborted = true;
+        });
+
+        // Download current frame button
+        $('#downloadFrameBtn').on('click', downloadCurrentFrame);
+
+        // Source playback controls
+        $('#sourcePlayPauseBtn').on('click', toggleSourcePlayback);
     });
 
     // print diags (TODO: generate markdown table)
