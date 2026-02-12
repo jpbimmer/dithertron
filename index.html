@@ -199,6 +199,8 @@
             display: block;
             max-width: 100%;
             max-height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
             /* Width/height set dynamically by JS based on container aspect ratio */
         }
         /* Palette controls */
@@ -270,6 +272,29 @@
             display: flex;
             flex-wrap: wrap;
             gap: 0.25rem;
+        }
+        .pixel-scale-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.2rem;
+            margin-top: 0.35rem;
+        }
+        .pixel-scale-btn {
+            padding: 0.15rem 0.4rem;
+            font-size: 0.65rem;
+            background: #495057;
+            color: white;
+            border: 1px solid #6c757d;
+            border-radius: 3px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .pixel-scale-btn:hover {
+            background: #5a6268;
+        }
+        .pixel-scale-btn.active {
+            background: #007bff;
+            border-color: #0056b3;
         }
         .error-func-btn {
             padding: 0.2rem 0.5rem;
@@ -555,6 +580,42 @@
             z-index: 1;
             position: relative;
         }
+        .palette-swatch-clickable.user-added {
+            position: relative;
+        }
+        .palette-swatch-remove {
+            position: absolute;
+            top: -2px;
+            right: 1px;
+            font-size: 0.65rem;
+            line-height: 1;
+            color: #fff;
+            text-shadow: 0 0 2px rgba(0,0,0,0.8);
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+        .palette-swatch-clickable:hover .palette-swatch-remove {
+            opacity: 1;
+        }
+        .palette-swatch-add {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 1.4em;
+            margin-bottom: 3px;
+            border: 1px dashed #6c757d;
+            border-radius: 3px;
+            color: #6c757d;
+            font-size: 0.85rem;
+            cursor: pointer;
+            break-inside: avoid;
+        }
+        .palette-swatch-add:hover {
+            border-color: #007bff;
+            color: #007bff;
+        }
         .palette-swatch-clickable.picker-active {
             transform: scale(1.2);
             box-shadow: 0 0 0 2px #007bff, 0 2px 8px rgba(0,0,0,0.4);
@@ -743,6 +804,11 @@
                     title="Download current frame as PNG">Frame PNG <i class="fa fa-download"></i></button>
                 <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
                     title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
+                <span class="navbar-divider"></span>
+                <button id="exportSettingsBtn" type="button" class="btn btn-sm btn-outline-secondary"
+                    title="Export settings to JSON"><i class="fa fa-download"></i> Export</button>
+                <button id="importSettingsBtn" type="button" class="btn btn-sm btn-outline-secondary"
+                    title="Import settings from JSON"><i class="fa fa-upload"></i> Import</button>
                 <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
                     <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
                 </button>
@@ -885,6 +951,12 @@
             <!-- Right Column: System Info & Palette -->
             <div class="info-column">
                 <div class="info-panel">
+                    <div class="pixel-scale-grid">
+                        <button class="pixel-scale-btn active" data-scale="1">1x</button>
+                        <button class="pixel-scale-btn" data-scale="2">2x</button>
+                        <button class="pixel-scale-btn" data-scale="4">4x</button>
+                        <button class="pixel-scale-btn" data-scale="8">8x</button>
+                    </div>
                     <div id="currentSystemDisplay" class="system-name-display"></div>
                     <div id="targetFormatInfo" class="format-info"></div>
                     <div id="paletteControls" class="palette-controls"></div>

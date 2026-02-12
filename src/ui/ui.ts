@@ -30,6 +30,7 @@ var originalPalette: Uint32Array | null = null;
 var paletteModified = false;
 var optimalPaletteCaptured = false; // Track if we've captured the optimal palette from worker
 var paletteLocked = false; // Track if palette is locked (prevents regeneration on crop changes)
+var originalPaletteSize = 0; // Track original palette length to identify user-added colors
 
 // Animation state
 var isAnimationMode = false;
@@ -42,6 +43,9 @@ var sourceGifPlayback = {
     currentFrame: 0,
     timer: null as number | null
 };
+
+// Pixel scale state
+var currentPixelScale = 1;
 
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
@@ -820,11 +824,18 @@ function convertImage() {
     );
     currentExpandedDimensions = expandedDims;
 
-    // Update canvas sizes to match expanded dimensions
-    resizeCanvas.width = expandedDims.width;
-    resizeCanvas.height = expandedDims.height;
-    destCanvas.width = expandedDims.width;
-    destCanvas.height = expandedDims.height;
+    // Apply pixel scale — reduce resolution so pixels appear larger
+    // The CSS image-rendering: pixelated ensures crisp upscaling
+    // Divide by √scale so that "Nx" means each pixel covers N× the area
+    const dimScale = Math.sqrt(currentPixelScale);
+    const scaledWidth = Math.round(expandedDims.width / dimScale);
+    const scaledHeight = Math.round(expandedDims.height / dimScale);
+
+    // Update canvas sizes to match scaled dimensions
+    resizeCanvas.width = scaledWidth;
+    resizeCanvas.height = scaledHeight;
+    destCanvas.width = scaledWidth;
+    destCanvas.height = scaledHeight;
 
     // Update aspect ratio for display
     const pixelAspect = dithertron.settings.scaleX || 1;
@@ -894,6 +905,7 @@ function updatePaletteSwatches(pal: Uint32Array) {
         if (!paletteModified && !optimalPaletteCaptured && !paletteLocked) {
             originalPalette = new Uint32Array(pal);
             currentPalette = new Uint32Array(pal);
+            originalPaletteSize = pal.length;
             optimalPaletteCaptured = true;
         }
 
@@ -905,8 +917,17 @@ function updatePaletteSwatches(pal: Uint32Array) {
             var sq = $('<span class="palette-swatch palette-swatch-clickable">&nbsp;</span>')
                 .css("background-color", rgb)
                 .attr('data-index', index);
+            // Add remove button for user-added colors
+            if (index >= originalPaletteSize) {
+                var removeBtn = $('<span class="palette-swatch-remove" data-index="' + index + '">&times;</span>');
+                sq.append(removeBtn).addClass('user-added');
+            }
             swat.append(sq);
         });
+
+        // Add "+" button to append a new color
+        var addBtn = $('<span class="palette-swatch palette-swatch-add" title="Add color">+</span>');
+        swat.append(addBtn);
 
         // Show/hide buttons based on state
         updateResetButtonVisibility();
@@ -1007,12 +1028,55 @@ function closeColorPicker() {
 }
 
 
+function addPaletteColor() {
+    if (currentPalette == null) return;
+
+    // Append a middle-gray color
+    const newPalette = new Uint32Array(currentPalette.length + 1);
+    newPalette.set(currentPalette);
+    newPalette[currentPalette.length] = 0x00808080; // gray in 0x00BBGGRR
+    currentPalette = newPalette;
+    paletteModified = true;
+
+    // Auto-lock for reduce systems
+    if (!paletteLocked && dithertron.settings?.reduce) {
+        paletteLocked = true;
+        const btn = $('#lockPaletteBtn');
+        btn.removeClass('btn-outline-secondary').addClass('btn-warning');
+        btn.html('<i class="fa fa-lock"></i> Lock');
+    }
+
+    dithertron.settings.pal = currentPalette;
+    updatePaletteSwatches(currentPalette);
+    if (isAnimationMode) reprocessAnimation();
+    else resetImage();
+}
+
+function removePaletteColor(index: number) {
+    if (currentPalette == null || index < originalPaletteSize || index >= currentPalette.length) return;
+
+    const newPalette = new Uint32Array(currentPalette.length - 1);
+    newPalette.set(currentPalette.subarray(0, index));
+    if (index < currentPalette.length - 1) {
+        newPalette.set(currentPalette.subarray(index + 1), index);
+    }
+    currentPalette = newPalette;
+    paletteModified = currentPalette.length !== originalPaletteSize || !originalPalette ||
+        currentPalette.some((v, i) => i < originalPaletteSize && originalPalette && v !== originalPalette[i]);
+
+    dithertron.settings.pal = currentPalette;
+    updatePaletteSwatches(currentPalette);
+    if (isAnimationMode) reprocessAnimation();
+    else resetImage();
+}
+
 function resetPalette() {
     if (originalPalette == null) return;
 
-    // Restore original palette
+    // Restore original palette (removes user-added colors too)
     currentPalette = new Uint32Array(originalPalette);
     paletteModified = false;
+    originalPaletteSize = originalPalette.length;
 
     // Update settings and re-dither
     dithertron.settings.pal = currentPalette;
@@ -1478,9 +1542,11 @@ function initializePaletteFromSystem(sys: DithertronSettings) {
         // Will be captured from worker result in updatePaletteSwatches
         originalPalette = null;
         currentPalette = null;
+        originalPaletteSize = 0;
     } else {
         originalPalette = new Uint32Array(sys.pal);
         currentPalette = new Uint32Array(sys.pal);
+        originalPaletteSize = sys.pal.length;
     }
     paletteModified = false;
     optimalPaletteCaptured = false;
@@ -1536,8 +1602,19 @@ function loadSourceImage(url: string) {
     updateURL();
 }
 
+function setPixelScale(scale: number) {
+    currentPixelScale = scale;
+    $('.pixel-scale-btn').removeClass('active');
+    $(`.pixel-scale-btn[data-scale="${scale}"]`).addClass('active');
+    convertImage();
+}
+
 function setTargetSystem(sys: DithertronSettings) {
     var showNoise = sys.conv != 'DitheringCanvas';
+    // Reset pixel scale when switching systems
+    currentPixelScale = 1;
+    $('.pixel-scale-btn').removeClass('active');
+    $('.pixel-scale-btn[data-scale="1"]').addClass('active');
     // Initialize mutable palette before setting up worker
     initializePaletteFromSystem(sys);
     // Reset expanded dimensions - will be recalculated in convertImage
@@ -1587,11 +1664,16 @@ function downloadNativeFormat() {
     }
 }
 
-// Create a canvas at the rendered display size (accounting for scaleX for non-square pixels)
+// Create a canvas at the rendered display size (matching the on-screen aspect ratio exactly)
 function createRenderedCanvas(): HTMLCanvasElement {
-    const scaleX = dithertron.settings?.scaleX || 1;
-    const renderedWidth = Math.round(destCanvas.width * scaleX);
+    // Use the CSS aspect-ratio value to determine export dimensions, ensuring
+    // the exported image matches exactly what's displayed on screen.
+    const displayedAR = parseFloat((destCanvas.style as any).aspectRatio) ||
+        (destCanvas.width / destCanvas.height);
+
+    // Use native buffer height as the base, compute width from displayed AR
     const renderedHeight = destCanvas.height;
+    const renderedWidth = Math.round(renderedHeight * displayedAR);
 
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = renderedWidth;
@@ -1749,6 +1831,85 @@ async function gotoIDE() {
     }
 }
 
+
+function exportSettings() {
+    const settings: any = {
+        version: 1,
+        system: dithertron.settings.id,
+        brightness: parseInt(brightSlider.value),
+        contrast: parseInt(contrastSlider.value),
+        saturation: parseInt(saturationSlider.value),
+        errorFunc: $('.error-func-btn.active').attr('data-error-func') || 'perceptual',
+        diversity: parseInt(diversitySlider.value),
+        ordered: parseInt(orderedSlider.value),
+        noise: parseInt(noiseSlider.value),
+        diffusion: parseInt(diffuseSlider.value),
+        ditherMethod: currentDitherIndex,
+        pixelScale: currentPixelScale,
+    };
+    if (paletteModified && currentPalette) {
+        settings.palette = Array.from(currentPalette).map(uint32ToHex);
+        settings.paletteModified = true;
+    }
+    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+    saveAs(blob, getFilenamePrefix() + '-settings.json');
+}
+
+function importSettings() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const data = JSON.parse(reader.result as string);
+                if (data.version !== 1) {
+                    alert('Unsupported settings version.');
+                    return;
+                }
+                // Restore system
+                if (data.system && SYSTEM_LOOKUP[data.system]) {
+                    setTargetSystem(SYSTEM_LOOKUP[data.system]);
+                }
+                // Restore sliders
+                if (data.brightness != null) ($('#brightSlider') as any).slider('setValue', data.brightness);
+                if (data.contrast != null) ($('#contrastSlider') as any).slider('setValue', data.contrast);
+                if (data.saturation != null) ($('#saturationSlider') as any).slider('setValue', data.saturation);
+                if (data.diversity != null) ($('#diversitySlider') as any).slider('setValue', data.diversity);
+                if (data.ordered != null) ($('#orderedSlider') as any).slider('setValue', data.ordered);
+                if (data.noise != null) ($('#noiseSlider') as any).slider('setValue', data.noise);
+                if (data.diffusion != null) ($('#diffuseSlider') as any).slider('setValue', data.diffusion);
+                // Restore error function
+                if (data.errorFunc) {
+                    $('.error-func-btn').removeClass('active');
+                    $(`.error-func-btn[data-error-func="${data.errorFunc}"]`).addClass('active');
+                }
+                // Restore dither method
+                if (data.ditherMethod != null && data.ditherMethod < ALL_DITHER_SETTINGS.length) {
+                    currentDitherIndex = data.ditherMethod;
+                    $('#diffMethodLabel').text(ALL_DITHER_SETTINGS[currentDitherIndex].name);
+                }
+                // Restore pixel scale
+                if (data.pixelScale != null) {
+                    setPixelScale(data.pixelScale);
+                }
+                // Restore palette
+                if (data.paletteModified && data.palette && Array.isArray(data.palette)) {
+                    currentPalette = new Uint32Array(data.palette.map(hexToUint32));
+                    paletteModified = true;
+                }
+                reprocessImage();
+            } catch (e) {
+                alert('Failed to load settings: ' + (e as Error).message);
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
 
 function updateURL() {
     let qs = {
@@ -1930,6 +2091,12 @@ export function startUI() {
             filterSidebarSystems($(this).val() as string);
         });
 
+        // Pixel scale buttons
+        $('.pixel-scale-btn').on('click', function() {
+            const scale = parseFloat($(this).attr('data-scale') || '1');
+            setPixelScale(scale);
+        });
+
         // Crop toggle
         $('#cropToggle').on('click', toggleCropMode);
 
@@ -1951,6 +2118,16 @@ export function startUI() {
 
         // Palette swatch click handler - opens native color picker directly
         $('#paletteSwatches').on('click', '.palette-swatch-clickable', onSwatchClick);
+
+        // Add color button
+        $('#paletteSwatches').on('click', '.palette-swatch-add', addPaletteColor);
+
+        // Remove color button (on user-added swatches)
+        $('#paletteSwatches').on('click', '.palette-swatch-remove', function(e) {
+            e.stopPropagation();
+            const index = parseInt($(this).attr('data-index') || '-1');
+            removePaletteColor(index);
+        });
 
         // Color picker auto-apply on change
         $('#colorPickerInput').on('input', onColorPickerChange);
@@ -1992,6 +2169,8 @@ export function startUI() {
 
         $("#downloadImageBtn").click(downloadImageFormat);
         $("#copyImageBtn").click(copyImageToClipboard);
+        $('#exportSettingsBtn').click(exportSettings);
+        $('#importSettingsBtn').click(importSettings);
 
         // Animation control event handlers
         $('#playPauseBtn').on('click', togglePlayback);
