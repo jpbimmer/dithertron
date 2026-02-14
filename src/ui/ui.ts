@@ -10,6 +10,7 @@ import Cropper from 'cropperjs';
 import { calculateExpandedDimensions, ExpandedDimensions } from '../common/dimensions';
 import pica from 'pica';
 import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 import { EXAMPLE_IMAGES } from "./sampleimages";
 import { isGifFile, loadGifFromFile, ParsedAnimatedGif } from "../gif/gifParser";
 import { animationState, AnimationStateManager } from "../gif/animationState";
@@ -35,6 +36,10 @@ var originalPaletteSize = 0; // Track original palette length to identify user-a
 // Animation state
 var isAnimationMode = false;
 var animationProcessingAborted = false;
+
+// Batch processing state
+var isBatchMode = false;
+var batchAborted = false;
 var consistentPalette = true; // Use same palette across all frames
 
 // Source GIF playback state
@@ -1378,6 +1383,152 @@ async function processFirstFramePreview(): Promise<void> {
     updatePaletteSwatches(processedFrame.pal);
 }
 
+// --- Batch Processing ---
+
+function cancelBatch() {
+    batchAborted = true;
+}
+
+async function processBatchImages(files: FileList) {
+    if (isAnimationMode) {
+        exitAnimationMode();
+    }
+
+    isBatchMode = true;
+    batchAborted = false;
+
+    const batchProgressEl = document.getElementById('batchProgress')!;
+    const batchProgressText = document.getElementById('batchProgressText')!;
+    const batchProgressBar = document.getElementById('batchProgressBar')!;
+    const cancelBtn = document.getElementById('cancelBatchBtn')!;
+    const zipBtn = document.getElementById('downloadBatchZipBtn') as HTMLButtonElement;
+
+    batchProgressEl.classList.add('visible');
+    cancelBtn.style.display = '';
+    zipBtn.disabled = true;
+    cancelBtn.onclick = cancelBatch;
+
+    const zip = new JSZip();
+
+    // Filter to image files (accept by type or common image extensions)
+    const imageExts = /\.(png|jpe?g|gif|bmp|webp|tiff?|svg|ico)$/i;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < files.length; i++) {
+        if (files[i].type.startsWith('image/') || imageExts.test(files[i].name)) {
+            imageFiles.push(files[i]);
+        }
+    }
+    console.log(`Batch: ${imageFiles.length} image files out of ${files.length} selected`);
+
+    let processedCount = 0;
+
+    for (let i = 0; i < imageFiles.length; i++) {
+        if (batchAborted) break;
+
+        const file = imageFiles[i];
+        const progress = Math.round(((i) / imageFiles.length) * 100);
+        batchProgressText.textContent = `Processing ${i + 1} of ${imageFiles.length}...`;
+        batchProgressBar.style.width = progress + '%';
+
+        try {
+            console.log(`Batch: starting ${file.name} (${file.type}, ${file.size} bytes)`);
+            const result = await processSingleBatchImage(file);
+            console.log(`Batch: finished ${file.name}`, result ? 'OK' : 'null');
+            if (result) {
+                zip.file(result.name, result.blob);
+                processedCount++;
+            }
+        } catch (e) {
+            console.error(`Batch: failed to process ${file.name}`, e);
+        }
+    }
+
+    // Done — hide progress, show zip button
+    batchProgressBar.style.width = '100%';
+    batchProgressText.textContent = batchAborted ? 'Batch cancelled' : `Batch complete — ${processedCount} files`;
+    cancelBtn.style.display = 'none';
+
+    if (processedCount > 0) {
+        zipBtn.disabled = false;
+        zipBtn.onclick = async () => {
+            const blob = await zip.generateAsync({ type: 'blob' });
+            saveAs(blob, `batch-${dithertron.settings.id}.zip`);
+        };
+    }
+
+    setTimeout(() => {
+        batchProgressEl.classList.remove('visible');
+    }, 2000);
+
+    isBatchMode = false;
+}
+
+async function processSingleBatchImage(file: File): Promise<{ name: string; blob: Blob } | null> {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = async () => {
+            URL.revokeObjectURL(url);
+            try {
+                // Draw image to a temp canvas
+                const srcCanvas = document.createElement('canvas');
+                srcCanvas.width = img.naturalWidth;
+                srcCanvas.height = img.naturalHeight;
+                const srcCtx = srcCanvas.getContext('2d')!;
+                srcCtx.drawImage(img, 0, 0);
+
+                // Build a GifFrameData-compatible object for processFrame
+                const srcData = new Uint32Array(
+                    srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height).data.buffer
+                );
+                const frameData: GifFrameData = {
+                    pixels: srcData,
+                    delay: 0,
+                    width: srcCanvas.width,
+                    height: srcCanvas.height,
+                };
+
+                const { frame } = await processFrame(frameData, 0, null);
+
+                // Render result to temp canvas and export as PNG
+                // Use expanded dimensions since processFrame resizes to those
+                const expandedDims = calculateExpandedDimensions(
+                    dithertron.settings,
+                    { width: srcCanvas.width, height: srcCanvas.height }
+                );
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = expandedDims.width;
+                outCanvas.height = expandedDims.height;
+                const outCtx = outCanvas.getContext('2d')!;
+                const outImageData = outCtx.createImageData(expandedDims.width, expandedDims.height);
+                new Uint32Array(outImageData.data.buffer).set(frame.img);
+                outCtx.putImageData(outImageData, 0, 0);
+
+                // Also show the last processed result in the main view
+                drawRGBA(destCanvas, frame.img);
+                updatePaletteSwatches(frame.pal);
+
+                outCanvas.toBlob((blob) => {
+                    if (blob) {
+                        const baseName = file.name.replace(/\.[^.]+$/, '') || 'image';
+                        const fileName = `${baseName}-${dithertron.settings.id}.png`;
+                        resolve({ name: fileName, blob });
+                    } else {
+                        resolve(null);
+                    }
+                }, 'image/png');
+            } catch (e) {
+                reject(e);
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error(`Failed to load ${file.name}`));
+        };
+        img.src = url;
+    });
+}
+
 async function loadAnimatedGif(file: File): Promise<void> {
     try {
         const gifData = await loadGifFromFile(file);
@@ -1952,22 +2103,29 @@ export function startUI() {
 
         document.querySelector('input[type="file"]').addEventListener('change', function (event) {
             var inputElement = event.target as HTMLInputElement;
-            var file = inputElement.files && inputElement.files[0];
-            if (file) {
-                filenameLoaded = file.name;
-                presetLoaded = "";
+            var files = inputElement.files;
+            if (!files || files.length === 0) return;
 
-                // Check if it's a GIF file
-                if (isGifFile(file)) {
-                    loadAnimatedGif(file);
-                } else {
-                    // Exit animation mode if we were in it
-                    if (isAnimationMode) {
-                        exitAnimationMode();
-                    }
-                    var url = URL.createObjectURL(file);
-                    loadSourceImage(url);
+            // Multiple non-GIF files → batch mode
+            if (files.length > 1) {
+                processBatchImages(files);
+                return;
+            }
+
+            var file = files[0];
+            filenameLoaded = file.name;
+            presetLoaded = "";
+
+            // Check if it's a GIF file
+            if (isGifFile(file)) {
+                loadAnimatedGif(file);
+            } else {
+                // Exit animation mode if we were in it
+                if (isAnimationMode) {
+                    exitAnimationMode();
                 }
+                var url = URL.createObjectURL(file);
+                loadSourceImage(url);
             }
         });
 

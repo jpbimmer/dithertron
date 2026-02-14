@@ -27,6 +27,7 @@
     "gif.js": "^0.2.0",
     "gifuct-js": "^2.1.2",
     "jquery": "^3.5.0",
+    "jszip": "^3.10.1",
     "pica": "^9.0.0"
   },
   "devDependencies": {

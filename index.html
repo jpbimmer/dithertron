@@ -767,6 +767,19 @@
             vertical-align: middle;
             margin-left: 0.5rem;
         }
+        .batch-progress {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            margin-top: 0.25rem;
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+        .batch-progress.visible {
+            display: flex;
+        }
         /* Palette lock checkbox for animations */
         .palette-consistency-option {
             display: none;
@@ -790,7 +803,7 @@
         <nav class="navbar">
             <a class="navbar-brand text-dark" href="#">DITHERTRON 2.0</a>
             <div class="navbar-actions ml-auto">
-                <input type="file" id="imageUpload" class="file-input-sm">
+                <input type="file" id="imageUpload" class="file-input-sm" multiple>
                 <button id="prevExampleBtn" class="btn btn-secondary btn-sm" title="Previous example">
                     <i class="fa fa-chevron-left"></i>
                 </button>
@@ -802,6 +815,8 @@
                     title="Download image"><span id="downloadBtnText">PNG</span> <i class="fa fa-download"></i></button>
                 <button id="downloadFrameBtn" type="button" class="btn btn-secondary btn-sm" style="display:none;"
                     title="Download current frame as PNG">Frame PNG <i class="fa fa-download"></i></button>
+                <button id="downloadBatchZipBtn" type="button" class="btn btn-primary btn-sm" disabled
+                    title="Download batch results as ZIP">Batch ZIP <i class="fa fa-download"></i></button>
                 <button id="copyImageBtn" type="button" class="btn btn-secondary btn-sm"
                     title="Copy image to clipboard"><i class="fa fa-clipboard"></i> Copy</button>
                 <span class="navbar-divider"></span>
@@ -899,6 +914,16 @@
                         <i class="fa fa-cogs"></i> Process <span id="remainingFrameCount">0</span> Frames
                     </button>
                     <button id="cancelProcessingBtn" class="btn btn-secondary btn-sm" style="display:none;">
+                        <i class="fa fa-stop"></i> Cancel
+                    </button>
+                </div>
+                <!-- Batch Processing Progress -->
+                <div id="batchProgress" class="batch-progress">
+                    <span id="batchProgressText">Processing 0 of 0...</span>
+                    <div class="progress" style="height:4px;width:100px;display:inline-block;vertical-align:middle;margin-left:0.5rem;">
+                        <div id="batchProgressBar" class="progress-bar" role="progressbar" style="width:0%"></div>
+                    </div>
+                    <button id="cancelBatchBtn" class="btn btn-secondary btn-sm" style="margin-left:0.5rem;">
                         <i class="fa fa-stop"></i> Cancel
                     </button>
                 </div>
