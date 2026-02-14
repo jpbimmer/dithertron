@@ -601,6 +601,8 @@ export abstract class CommonBlockParamDitherCanvas extends BlockParamDitherCanva
             this.preparePixelPaletteChoices();
             return;
         }
+        // Extend color ranges to include any user-added palette entries
+        var colorsRange = options.colorsRange === undefined ? { min: 0, max: this.pal.length - 1 } : { ...options.colorsRange, max: Math.max(options.colorsRange.max, this.pal.length - 1) };
         this.paletteChoices = {
             prefillReference: options.prefillReference === undefined ? false : options.prefillReference,
             background: options.background === undefined ? false : options.background,
@@ -610,7 +612,7 @@ export abstract class CommonBlockParamDitherCanvas extends BlockParamDitherCanva
             auxRange: options.auxRange === undefined ? { min: 0, max: this.pal.length - 1 } : options.auxRange,
             borderRange: options.borderRange === undefined ? { min: 0, max: this.pal.length - 1 } : options.borderRange,
             colors: this.block.colors,
-            colorsRange: options.colorsRange === undefined ? { min: 0, max: this.pal.length - 1 } : options.colorsRange
+            colorsRange: colorsRange
         };
 
         this.paletteChoices.colors = options.colors === undefined ?

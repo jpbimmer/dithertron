@@ -36,8 +36,8 @@ export function reducePaletteChoices(
     var err = new Int32Array(4);
     var tmp = new Uint8ClampedArray(4);
     var tmp2 = new Uint32Array(tmp.buffer);
-    var bias = diversity*0.5 + 0.5;
-    let decay = diversity*0.25 + 0.65;
+    var bias = diversity;
+    let decay = diversity*0.5 + 0.4;
     // choose initial centroids from palette
     var centroids : Centroid[] = [];
     var inds : number[] = [];

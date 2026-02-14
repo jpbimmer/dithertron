@@ -42,8 +42,10 @@ export class Dithertron implements DithertronInterface {
             var pal: Uint32Array = new Uint32Array(sys.pal);
             var errfn = (ERROR_FUNCTIONS as any)[sys.errfn || 'perceptual'] || getRGBAErrorPerceptual;
             if (sys.reduce) {
+                // Increase reduce count to include user-added colors
+                var reduceCount = sys.reduce + (sys.userAddedColors || 0);
                 pal = reducePalette(this.sourceImageData, pal,
-                    sys.reduce, sys.paletteDiversity || 0, errfn);
+                    reduceCount, sys.paletteDiversity || 0, errfn);
             }
             if (sys.extraColors) {
                 let pal2 = new Uint32Array(pal.length + sys.extraColors);
@@ -56,7 +58,7 @@ export class Dithertron implements DithertronInterface {
             if (!this.dithcanv) throw new Error("no convFunction() for " + sys.conv);
             this.dithcanv.sys = sys;
             this.dithcanv.errfn = errfn;
-            this.dithcanv.noise = sys.noise ? (1 << sys.noise) : 0;
+            this.dithcanv.noise = sys.noise ? (1 << (sys.noise + 2)) : 0;
             this.dithcanv.diffuse = (sys.diffuse || 0) + 0;
             this.dithcanv.ordered = (sys.ordered || 0) + 0;
             this.dithcanv.ditherfn = sys.ditherfn || [];

@@ -88,6 +88,7 @@ export interface DithertronSettings {
     ordered?: number;
     noise?: number;
     paletteDiversity?: number;
+    userAddedColors?: number;
     ditherfn?: DitherKernel;
     block?: BlockBasics & BlockColors & Partial<BlockColorBleed> & Partial<BlockBitOrder>;
     cell?: BlockBasics & BlockBitOrder & Partial<BlockColorBleed> & Partial<BlockBitOrder>;

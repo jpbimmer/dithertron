@@ -767,7 +767,7 @@ function resetImage() {
     dithertron.settings.diffuse = parseFloat(diffuseSlider.value) / 100;
     dithertron.settings.ordered = parseFloat(orderedSlider.value) / 100;
     dithertron.settings.noise = parseFloat(noiseSlider.value);
-    dithertron.settings.paletteDiversity = parseFloat(diversitySlider.value) / 200 + 0.75;
+    dithertron.settings.paletteDiversity = parseFloat(diversitySlider.value) / 100 + 0.5;
 
     // Use locked/modified palette if available
     if ((paletteLocked || paletteModified) && currentPalette) {
@@ -1052,6 +1052,7 @@ function addPaletteColor() {
     }
 
     dithertron.settings.pal = currentPalette;
+    dithertron.settings.userAddedColors = Math.max(0, currentPalette.length - originalPaletteSize);
     updatePaletteSwatches(currentPalette);
     if (isAnimationMode) reprocessAnimation();
     else resetImage();
@@ -1070,6 +1071,7 @@ function removePaletteColor(index: number) {
         currentPalette.some((v, i) => i < originalPaletteSize && originalPalette && v !== originalPalette[i]);
 
     dithertron.settings.pal = currentPalette;
+    dithertron.settings.userAddedColors = Math.max(0, currentPalette.length - originalPaletteSize);
     updatePaletteSwatches(currentPalette);
     if (isAnimationMode) reprocessAnimation();
     else resetImage();
@@ -1085,6 +1087,7 @@ function resetPalette() {
 
     // Update settings and re-dither
     dithertron.settings.pal = currentPalette;
+    dithertron.settings.userAddedColors = 0;
     if (isAnimationMode) {
         reprocessAnimation();
     } else {
@@ -1450,6 +1453,8 @@ async function processBatchImages(files: FileList) {
 
     if (processedCount > 0) {
         zipBtn.disabled = false;
+        var clearBatchBtn = document.getElementById('clearBatchBtn')!;
+        clearBatchBtn.style.display = '';
         zipBtn.onclick = async () => {
             const blob = await zip.generateAsync({ type: 'blob' });
             saveAs(blob, `batch-${dithertron.settings.id}.zip`);
@@ -2101,10 +2106,19 @@ export function startUI() {
             resizeObserver.observe(renderedContainer);
         }
 
-        document.querySelector('input[type="file"]').addEventListener('change', function (event) {
+        document.querySelector('#imageUpload').addEventListener('change', function (event) {
             var inputElement = event.target as HTMLInputElement;
             var files = inputElement.files;
             if (!files || files.length === 0) return;
+
+            // Update file count label
+            var fileCountLabel = document.getElementById('fileCountLabel')!;
+            if (files.length === 1) {
+                fileCountLabel.textContent = files[0].name;
+            } else {
+                fileCountLabel.textContent = files.length + ' files';
+            }
+            fileCountLabel.style.display = '';
 
             // Multiple non-GIF files → batch mode
             if (files.length > 1) {
@@ -2329,6 +2343,15 @@ export function startUI() {
         $("#copyImageBtn").click(copyImageToClipboard);
         $('#exportSettingsBtn').click(exportSettings);
         $('#importSettingsBtn').click(importSettings);
+        $('#clearBatchBtn').click(function() {
+            var zipBtn = document.getElementById('downloadBatchZipBtn') as HTMLButtonElement;
+            zipBtn.disabled = true;
+            zipBtn.onclick = null;
+            $(this).hide();
+            var fileCountLabel = document.getElementById('fileCountLabel')!;
+            fileCountLabel.style.display = 'none';
+            (document.getElementById('imageUpload') as HTMLInputElement).value = '';
+        });
 
         // Animation control event handlers
         $('#playPauseBtn').on('click', togglePlayback);
