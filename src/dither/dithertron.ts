@@ -1,5 +1,5 @@
 
-import { ERROR_FUNCTIONS, getRGBAErrorPerceptual, reducePalette } from '../common/color';
+import { ERROR_FUNCTIONS, ERROR_FUNCTIONS_SQ, getRGBAErrorPerceptual, getRGBAErrorPerceptualSq, reducePalette } from '../common/color';
 import { DithertronSettings, PixelsAvailableMessage } from '../common/types';
 import { SYSTEMS } from '../settings/systems';
 import * as canvas from './canvas';
@@ -14,8 +14,8 @@ const ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
 
 export const MAX_ITERATE_COUNT = 100;
 
-const TEMPERATURE_START_ITERATIONS = 10;
-const TEMPERATURE_STEP = 0.01;
+const TEMPERATURE_START_ITERATIONS = 5;
+const TEMPERATURE_STEP = 0.04;
 
 export interface DithertronInterface {
     iterate(): void;
@@ -58,14 +58,20 @@ export class Dithertron implements DithertronInterface {
             if (!this.dithcanv) throw new Error("no convFunction() for " + sys.conv);
             this.dithcanv.sys = sys;
             this.dithcanv.errfn = errfn;
+            this.dithcanv.errfnSq = (ERROR_FUNCTIONS_SQ as any)[sys.errfn || 'perceptual'] || getRGBAErrorPerceptualSq;
             this.dithcanv.noise = sys.noise ? (1 << (sys.noise + 2)) : 0;
             this.dithcanv.diffuse = (sys.diffuse || 0) + 0;
+            this.dithcanv.initialDiffuse = this.dithcanv.diffuse;
             this.dithcanv.ordered = (sys.ordered || 0) + 0;
             this.dithcanv.ditherfn = sys.ditherfn || [];
             this.dithcanv.init();
         }
         this.dithcanv.iterate();
         this.dithcanv.noise >>= 1; // divide by 2
+        // Dampen diffusion over iterations to help convergence
+        if (this.dithcanv.iterateCount > TEMPERATURE_START_ITERATIONS) {
+            this.dithcanv.diffuse = this.dithcanv.initialDiffuse * Math.max(0.5, 1.0 - (this.dithcanv.iterateCount - TEMPERATURE_START_ITERATIONS) * 0.01);
+        }
         if (this.dithcanv.iterateCount >= TEMPERATURE_START_ITERATIONS) {
             this.dithcanv.errorThreshold += TEMPERATURE_STEP;
         }

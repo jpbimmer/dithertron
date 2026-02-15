@@ -105,6 +105,11 @@ export class VICII_Canvas extends CommonBlockParamDitherCanvas {
         }
     }
 
+    override getCacheKey(imageIndex: number): number {
+        // FLI mode has per-pixel valid color variations (bug area), so disable block caching
+        if (this.fliMode) return imageIndex;
+        return this.imageIndexToBlockOffset(imageIndex);
+    }
     override getValidColors(imageIndex: number): number[] {
         let offset = this.imageIndexToBlockOffset(imageIndex);
         let cbOffset = this.imageIndexToCbOffset(imageIndex);

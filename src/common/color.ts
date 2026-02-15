@@ -111,26 +111,21 @@ export function reducePalette(
 
 //
 
+// Reusable buffer for getRGBADiff to avoid per-pixel allocation
+const _diffBuf = [0, 0, 0];
+
 export function getRGBADiff(rgbref: number, rgbimg: number) {
-    var err = [0,0,0];
-    for (var i=0; i<3; i++) {
-        var d = (rgbref & 0xff) - (rgbimg & 0xff);
-        err[i] = d;
-        rgbref >>= 8;
-        rgbimg >>= 8;
-    }
-    return err;
+    _diffBuf[0] = (rgbref & 0xff) - (rgbimg & 0xff);
+    _diffBuf[1] = ((rgbref >> 8) & 0xff) - ((rgbimg >> 8) & 0xff);
+    _diffBuf[2] = ((rgbref >> 16) & 0xff) - ((rgbimg >> 16) & 0xff);
+    return _diffBuf;
 }
 
 export function getRGBAErrorAbsolute(rgbref: number, rgbimg: number) {
-    var mag = 0;
-    for (var i=0; i<3; i++) {
-        var d = (rgbref & 0xff) - (rgbimg & 0xff);
-        mag += sqr(d);
-        rgbref >>= 8;
-        rgbimg >>= 8;
-    }
-    return Math.sqrt(mag);
+    var r = (rgbref & 0xff) - (rgbimg & 0xff);
+    var g = ((rgbref >> 8) & 0xff) - ((rgbimg >> 8) & 0xff);
+    var b = ((rgbref >> 16) & 0xff) - ((rgbimg >> 16) & 0xff);
+    return Math.sqrt(r * r + g * g + b * b);
 }
 
 // TODO???
@@ -184,11 +179,54 @@ export function intensity(rgb: number) {
     return getRGBAErrorPerceptual(0, rgb);
 }
 
+// Squared variants for comparison-only paths (avoids expensive Math.sqrt)
+export function getRGBAErrorPerceptualSq(rgbref: number, rgbimg: number) {
+    var r1 = ((rgbref>>0) & 0xff);
+    var g1 = ((rgbref>>8) & 0xff);
+    var b1 = ((rgbref>>16) & 0xff);
+    var r2 = ((rgbimg>>0) & 0xff);
+    var g2 = ((rgbimg>>8) & 0xff);
+    var b2 = ((rgbimg>>16) & 0xff);
+    var rmean = (r1 + r2) / 2;
+    var r = r1 - r2;
+    var g = g1 - g2;
+    var b = b1 - b2;
+    return (((512+rmean)*r*r)/256) + 4*g*g + (((767-rmean)*b*b)/256);
+}
+
+export function getRGBAErrorAbsoluteSq(rgbref: number, rgbimg: number) {
+    var r = (rgbref & 0xff) - (rgbimg & 0xff);
+    var g = ((rgbref >> 8) & 0xff) - ((rgbimg >> 8) & 0xff);
+    var b = ((rgbref >> 16) & 0xff) - ((rgbimg >> 16) & 0xff);
+    return r * r + g * g + b * b;
+}
+
+export function getRGBAErrorMaxSq(rgbref: number, rgbimg: number) {
+    var r = Math.abs(((rgbref>>0) & 0xff) - ((rgbimg>>0) & 0xff));
+    var g = Math.abs(((rgbref>>8) & 0xff) - ((rgbimg>>8) & 0xff));
+    var b = Math.abs(((rgbref>>16) & 0xff) - ((rgbimg>>16) & 0xff));
+    var m = Math.max(r, g, b);
+    return m * m;
+}
+
+export function getRGBAErrorHueSq(rgbref: number, rgbimg: number) {
+    var v = getRGBAErrorHue(rgbref, rgbimg);
+    return v * v;
+}
+
 export const ERROR_FUNCTIONS = {
     'perceptual': getRGBAErrorPerceptual,
     'hue': getRGBAErrorHue,
     'dist': getRGBAErrorAbsolute,
     'max': getRGBAErrorMax,
+}
+
+// Squared variants keyed by the same names — used for comparison-only paths
+export const ERROR_FUNCTIONS_SQ: { [key: string]: RGBDistanceFunction } = {
+    'perceptual': getRGBAErrorPerceptualSq,
+    'hue': getRGBAErrorHueSq,
+    'dist': getRGBAErrorAbsoluteSq,
+    'max': getRGBAErrorMaxSq,
 }
 
 export function getRGBAErrorArr(a: number, b: number) {
@@ -201,17 +239,17 @@ export function getRGBAErrorArr(a: number, b: number) {
     return err;
 }
 
-export function getClosestRGB(rgb:number, inds:number[], pal:Uint32Array, distfn:RGBDistanceFunction) {
+export function getClosestRGB(rgb:number, inds:number[], pal:Uint32Array, distfn:RGBDistanceFunction, distfnSq?:RGBDistanceFunction) {
     var best = 9999999;
     var bestidx = -1;
+    var fn = distfnSq || distfn;
     for (var i=0; i<inds.length; i++) {
         let ind = inds[i];
         if (ind >= 0) {
-            var col = pal[inds[i]];
-            var score = distfn(rgb, col);
+            var score = fn(rgb, pal[ind]);
             if (score < best) {
                 best = score;
-                bestidx = inds[i];
+                bestidx = ind;
             }
         }
     }

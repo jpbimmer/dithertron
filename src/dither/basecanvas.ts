@@ -1,5 +1,5 @@
 import { support } from "jquery";
-import { getChoices, getClosestRGB, getRGBADiff, getRGBAErrorPerceptual, reducePaletteChoices, ColorChoice } from "../common/color";
+import { getChoices, getClosestRGB, getRGBADiff, getRGBAErrorPerceptual, getRGBAErrorPerceptualSq, reducePaletteChoices, ColorChoice } from "../common/color";
 import {
     DitherKernel,
     DithertronSettings,
@@ -40,9 +40,12 @@ export class BaseDitheringCanvas {
     ordered: number = 0.0;
     ditherfn: DitherKernel = [];
     errfn: RGBDistanceFunction = getRGBAErrorPerceptual;
+    errfnSq: RGBDistanceFunction = getRGBAErrorPerceptualSq;
     errorThreshold = 0;
     iterateCount: number = 0;
+    initialDiffuse: number = 0.8;
     params: Uint32Array;
+    private _validColorsCache: Map<number, number[]> = new Map();
     content(): any { return { params: this.params }; };
 
     constructor(img: Uint32Array, width: number, pal: Uint32Array) {
@@ -77,7 +80,7 @@ export class BaseDitheringCanvas {
         var ko = 1;
         if (this.ordered > 0) {
             let x = (offset % this.width) & 3;
-            let y = (offset / this.width) & 3;
+            let y = ((offset / this.width) | 0) & 3;
             ko = 1 + (THRESHOLD_MAP_4X4[x + y * 4] / 15 - 0.5) * this.ordered;
         }
         this.tmp[0] = (rgbref & 0xff) * ko + this.err[errofs];
@@ -85,34 +88,43 @@ export class BaseDitheringCanvas {
         this.tmp[2] = ((rgbref >> 16) & 0xff) * ko + this.err[errofs + 2];
         // store the error-modified color
         this.alt[offset] = this.tmp2[0];
-        // find closest palette color
-        var valid = this.getValidColors(offset);
+        // find closest palette color (use cached valid colors per block)
+        var valid = this.getCachedValidColors(offset);
         var palidx = this.getClosest(this.tmp2[0], valid);
         var rgbimg = this.pal[palidx];
         // compute error between adjusted pixel and chosen color, then distribute to neighbors
         var err = getRGBADiff(this.tmp2[0], rgbimg);
+        // Copy error values before distributing (since getRGBADiff reuses buffer)
+        var e0 = err[0], e1 = err[1], e2 = err[2];
         var x = offset % this.width;
-        var y = Math.floor(offset / this.width);
+        var y = (offset / this.width) | 0;
+        var ditherfn = this.ditherfn;
+        var dfLen = ditherfn.length;
+        var diffuse = this.diffuse;
+        var errArr = this.err;
+        var w = this.width;
+        var h = this.height;
         for (var i = 0; i < 3; i++) {
-            var k = err[i] * this.diffuse;
-            this.ditherfn.forEach((df) => {
-                // Check bounds to prevent wrapping artifacts
+            var ev = (i === 0 ? e0 : (i === 1 ? e1 : e2));
+            var k = ev * diffuse;
+            for (var j = 0; j < dfLen; j++) {
+                var df = ditherfn[j];
                 var targetX = x + df[0];
                 var targetY = y + df[1];
-                if (targetX >= 0 && targetX < this.width && targetY >= 0 && targetY < this.height) {
-                    this.err[errofs + i + (df[0] + df[1] * this.width) * 3] += k * df[2];
+                if (targetX >= 0 && targetX < w && targetY >= 0 && targetY < h) {
+                    errArr[errofs + i + (df[0] + df[1] * w) * 3] += k * df[2];
                 }
-            });
-            this.err[errofs + i] = 0; // reset this pixel's error
+            }
+            errArr[errofs + i] = 0; // reset this pixel's error
         }
         // set new pixel rgb
-        const errmag = (Math.abs(err[0]) + Math.abs(err[1]*2) + Math.abs(err[2])) / (256 * 4);
+        const errmag = (Math.abs(e0) + Math.abs(e1 * 2) + Math.abs(e2)) / (256 * 4);
         if (this.indexed[offset] != palidx) {
             let shouldChange = (errmag >= this.errorThreshold);
             if (!shouldChange) {
                 let existingValue = this.indexed[offset];
                 // double check the old value is still legal since changing the value is not desired
-                shouldChange = (valid.find((x) => existingValue === x) === undefined);
+                shouldChange = !valid.includes(existingValue);
             }
             if (shouldChange) {
                 this.indexed[offset] = palidx;
@@ -120,13 +132,27 @@ export class BaseDitheringCanvas {
             }
         }
         this.img[offset] = rgbimg;
-        //this.img[offset] = this.tmp2[0] | 0xff000000;
     }
     getClosest(rgb: number, inds: number[]) {
-        return getClosestRGB(rgb, inds, this.pal, this.errfn);
+        return getClosestRGB(rgb, inds, this.pal, this.errfn, this.errfnSq);
+    }
+    getCacheKey(offset: number): number {
+        return offset; // base class: per-pixel (subclasses override for block-level)
+    }
+    getCachedValidColors(offset: number): number[] {
+        var key = this.getCacheKey(offset);
+        var cached = this._validColorsCache.get(key);
+        if (cached !== undefined) return cached;
+        var valid = this.getValidColors(offset);
+        this._validColorsCache.set(key, valid);
+        return valid;
     }
     iterate() {
         this.changes = 0;
+        // Clear error buffer to prevent error compounding across iterations
+        this.err.fill(0);
+        // Clear valid colors cache since block params may change
+        this._validColorsCache.clear();
         // WARNING: commit must be called prior to update otherwise the
         // update can happen without the image reflecting the new color
         // choices. Not only is the image seen potentially out of sync for
@@ -200,10 +226,13 @@ export abstract class TwoColor_Canvas extends BasicParamDitherCanvas {
             this.guessParam(i);
         }
     }
-    override getValidColors(imageIndex: number) {
+    override getCacheKey(imageIndex: number): number {
         var col = Math.floor(imageIndex / this.w) % this.ncols;
         var row = Math.floor(imageIndex / (this.width * this.h));
-        var i = col + row * this.ncols;
+        return col + row * this.ncols;
+    }
+    override getValidColors(imageIndex: number) {
+        var i = this.getCacheKey(imageIndex);
         var c1 = this.params[i] & 0xff;
         var c2 = (this.params[i] >> 8) & 0xff;
         return [c1, c2];
@@ -1092,6 +1121,9 @@ export abstract class CommonBlockParamDitherCanvas extends BlockParamDitherCanva
         this.firstCommit = false;
     }
 
+    override getCacheKey(imageIndex: number): number {
+        return this.imageIndexToBlockOffset(imageIndex);
+    }
     override getValidColors(imageIndex: number): number[] {
         let offset = this.imageIndexToBlockOffset(imageIndex);
 
