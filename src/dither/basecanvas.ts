@@ -38,6 +38,7 @@ export class BaseDitheringCanvas {
     noise: number = 0;
     diffuse: number = 0.8;
     ordered: number = 0.0;
+    scanDirection: number = 1; // 1 = left-to-right, -1 = right-to-left (serpentine)
     ditherfn: DitherKernel = [];
     errfn: RGBDistanceFunction = getRGBAErrorPerceptual;
     errfnSq: RGBDistanceFunction = getRGBAErrorPerceptualSq;
@@ -104,15 +105,17 @@ export class BaseDitheringCanvas {
         var errArr = this.err;
         var w = this.width;
         var h = this.height;
+        var sd = this.scanDirection;
         for (var i = 0; i < 3; i++) {
             var ev = (i === 0 ? e0 : (i === 1 ? e1 : e2));
             var k = ev * diffuse;
             for (var j = 0; j < dfLen; j++) {
                 var df = ditherfn[j];
-                var targetX = x + df[0];
+                var fdx = df[0] * sd; // flip x offset for backward rows
+                var targetX = x + fdx;
                 var targetY = y + df[1];
                 if (targetX >= 0 && targetX < w && targetY >= 0 && targetY < h) {
-                    errArr[errofs + i + (df[0] + df[1] * w) * 3] += k * df[2];
+                    errArr[errofs + i + (fdx + df[1] * w) * 3] += k * df[2];
                 }
             }
             errArr[errofs + i] = 0; // reset this pixel's error
@@ -160,9 +163,19 @@ export class BaseDitheringCanvas {
         // fail on some pixels as these pixel chose a color that is not
         // present in the color params.
         this.commit();
-        for (var i = 0; i < this.img.length; i++) {
-            this.update(i);
+        var w = this.width;
+        var h = this.height;
+        for (var row = 0; row < h; row++) {
+            // alternate scan direction each row (serpentine) to reduce directional error bias
+            this.scanDirection = (row & 1) ? -1 : 1;
+            var rowBase = row * w;
+            if (this.scanDirection === 1) {
+                for (var col = 0; col < w; col++) this.update(rowBase + col);
+            } else {
+                for (var col = w - 1; col >= 0; col--) this.update(rowBase + col);
+            }
         }
+        this.scanDirection = 1; // reset for external callers
         this.iterateCount++;
     }
     commit() {
