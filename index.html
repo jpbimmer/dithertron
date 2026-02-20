@@ -318,6 +318,31 @@
             border-color: #0056b3;
         }
 
+        /* Dither settings two-column layout */
+        .dither-settings-layout {
+            display: flex;
+            gap: 0.75rem;
+            align-items: stretch;
+        }
+        .dither-sliders {
+            flex: 1;
+            min-width: 0;
+        }
+        .dither-controls {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.35rem;
+            justify-content: space-between;
+        }
+        .dither-classic-label {
+            font-size: 0.75rem;
+            white-space: nowrap;
+            cursor: pointer;
+            margin: 0;
+        }
+
         /* Dither method navigation */
         .dither-nav {
             display: flex;
@@ -939,44 +964,54 @@
                 </div>
                 <div class="column-bottom">
                     <div class="alert alert-secondary">
-                        <div class="row align-items-center" id="diversitySection">
-                            <label for="diversitySlider" class="col-sm-3 col-form-label">Diversity:</label>
-                            <div class="col-sm-5 col-md-5">
-                                <input type="range" id="diversitySlider" data-provide="slider" data-slider-min="0"
-                                    data-slider-max="100" data-slider-value="60" />
+                        <div class="dither-settings-layout">
+                            <!-- Left: sliders -->
+                            <div class="dither-sliders">
+                                <div class="row align-items-center" id="diversitySection">
+                                    <label for="diversitySlider" class="col-4 col-form-label">Diversity:</label>
+                                    <div class="col-8">
+                                        <input type="range" id="diversitySlider" data-provide="slider" data-slider-min="0"
+                                            data-slider-max="100" data-slider-value="60" />
+                                    </div>
+                                </div>
+                                <div class="row align-items-center" id="orderedSection">
+                                    <label for="orderedSlider" class="col-4 col-form-label">Ordered:</label>
+                                    <div class="col-8">
+                                        <input type="range" id="orderedSlider" data-provide="slider" data-slider-min="0"
+                                            data-slider-max="100" data-slider-value="0" />
+                                    </div>
+                                </div>
+                                <div class="row align-items-center" id="noiseSection">
+                                    <label for="noiseSlider" class="col-4 col-form-label">Noise:</label>
+                                    <div class="col-8">
+                                        <input type="range" id="noiseSlider" data-provide="slider" data-slider-min="0"
+                                            data-slider-max="10" data-slider-value="5" />
+                                    </div>
+                                </div>
+                                <div class="row align-items-center" id="diffuseSection">
+                                    <label for="diffuseSlider" class="col-4 col-form-label">Diffusion:</label>
+                                    <div class="col-8">
+                                        <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
+                                            data-slider-max="100" data-slider-value="75" />
+                                    </div>
+                                </div>
                             </div>
-                            <div class="col-sm-4 col-md-4 text-right">
+                            <!-- Right: controls -->
+                            <div class="dither-controls">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="resetDitherSliders">Reset</button>
-                            </div>
-                        </div>
-                        <div class="row align-items-center" id="orderedSection">
-                            <label for="orderedSlider" class="col-sm-3 col-form-label">Ordered:</label>
-                            <div class="col-sm-5 col-md-5">
-                                <input type="range" id="orderedSlider" data-provide="slider" data-slider-min="0"
-                                    data-slider-max="100" data-slider-value="0" />
-                            </div>
-                        </div>
-                        <div class="row align-items-center" id="noiseSection">
-                            <label for="noiseSlider" class="col-sm-3 col-form-label">Noise:</label>
-                            <div class="col-sm-5 col-md-5">
-                                <input type="range" id="noiseSlider" data-provide="slider" data-slider-min="0"
-                                    data-slider-max="10" data-slider-value="5" />
-                            </div>
-                        </div>
-                        <div class="row align-items-center" id="diffuseSection">
-                            <label for="diffuseSlider" class="col-sm-3 col-form-label">Diffusion:</label>
-                            <div class="col-sm-5 col-md-5">
-                                <input type="range" id="diffuseSlider" data-provide="slider" data-slider-min="0"
-                                    data-slider-max="100" data-slider-value="75" />
-                            </div>
-                            <div class="col-sm-4 col-md-4 text-right dither-nav">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="prevDitherBtn" title="Previous dither method">
-                                    <i class="fa fa-chevron-left"></i>
-                                </button>
-                                <span id="diffMethodLabel" class="dither-method-label">Floyd-Steinberg</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="nextDitherBtn" title="Next dither method">
-                                    <i class="fa fa-chevron-right"></i>
-                                </button>
+                                <label class="dither-classic-label">
+                                    <input type="checkbox" id="legacyDitheringCheckbox">
+                                    Classic mode
+                                </label>
+                                <div class="dither-nav">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="prevDitherBtn" title="Previous dither method">
+                                        <i class="fa fa-chevron-left"></i>
+                                    </button>
+                                    <span id="diffMethodLabel" class="dither-method-label">Floyd-Steinberg</span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" id="nextDitherBtn" title="Next dither method">
+                                        <i class="fa fa-chevron-right"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

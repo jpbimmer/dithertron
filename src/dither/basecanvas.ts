@@ -165,9 +165,10 @@ export class BaseDitheringCanvas {
         this.commit();
         var w = this.width;
         var h = this.height;
+        var serpentine = !this.sys?.legacyDithering;
         for (var row = 0; row < h; row++) {
             // alternate scan direction each row (serpentine) to reduce directional error bias
-            this.scanDirection = (row & 1) ? -1 : 1;
+            this.scanDirection = (serpentine && (row & 1)) ? -1 : 1;
             var rowBase = row * w;
             if (this.scanDirection === 1) {
                 for (var col = 0; col < w; col++) this.update(rowBase + col);

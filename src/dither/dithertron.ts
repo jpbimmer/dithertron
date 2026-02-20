@@ -68,12 +68,14 @@ export class Dithertron implements DithertronInterface {
         }
         this.dithcanv.iterate();
         this.dithcanv.noise >>= 1; // divide by 2
-        // Dampen diffusion over iterations to help convergence
-        if (this.dithcanv.iterateCount > TEMPERATURE_START_ITERATIONS) {
-            this.dithcanv.diffuse = this.dithcanv.initialDiffuse * Math.max(0.5, 1.0 - (this.dithcanv.iterateCount - TEMPERATURE_START_ITERATIONS) * 0.01);
-        }
-        if (this.dithcanv.iterateCount >= TEMPERATURE_START_ITERATIONS) {
-            this.dithcanv.errorThreshold += TEMPERATURE_STEP;
+        if (!this.sysparams.legacyDithering) {
+            // Dampen diffusion over iterations to help convergence
+            if (this.dithcanv.iterateCount > TEMPERATURE_START_ITERATIONS) {
+                this.dithcanv.diffuse = this.dithcanv.initialDiffuse * Math.max(0.5, 1.0 - (this.dithcanv.iterateCount - TEMPERATURE_START_ITERATIONS) * 0.01);
+            }
+            if (this.dithcanv.iterateCount >= TEMPERATURE_START_ITERATIONS) {
+                this.dithcanv.errorThreshold += TEMPERATURE_STEP;
+            }
         }
         var final = this.dithcanv.changes == 0 || this.dithcanv.iterateCount > MAX_ITERATE_COUNT;
         if (this.pixelsAvailable != null) {

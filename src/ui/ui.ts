@@ -768,6 +768,7 @@ function resetImage() {
     dithertron.settings.ordered = parseFloat(orderedSlider.value) / 100;
     dithertron.settings.noise = parseFloat(noiseSlider.value);
     dithertron.settings.paletteDiversity = parseFloat(diversitySlider.value) / 100 + 0.5;
+    dithertron.settings.legacyDithering = (document.getElementById('legacyDitheringCheckbox') as HTMLInputElement)?.checked || false;
 
     // Use locked/modified palette if available
     if ((paletteLocked || paletteModified) && currentPalette) {
@@ -1355,6 +1356,7 @@ function processFrame(
             frameSettings.ordered = parseFloat(orderedSlider.value) / 100;
             frameSettings.noise = parseFloat(noiseSlider.value);
             frameSettings.paletteDiversity = parseFloat(diversitySlider.value) / 200 + 0.75;
+            frameSettings.legacyDithering = (document.getElementById('legacyDitheringCheckbox') as HTMLInputElement)?.checked || false;
 
             // Use locked palette if available
             if (lockedPalette) {
@@ -2002,6 +2004,7 @@ function exportSettings() {
         diffusion: parseInt(diffuseSlider.value),
         ditherMethod: currentDitherIndex,
         pixelScale: currentPixelScale,
+        legacyDithering: (document.getElementById('legacyDitheringCheckbox') as HTMLInputElement)?.checked || false,
     };
     if (paletteModified && currentPalette) {
         settings.palette = Array.from(currentPalette).map(uint32ToHex);
@@ -2038,6 +2041,7 @@ function importSettings() {
                 if (data.ordered != null) ($('#orderedSlider') as any).slider('setValue', data.ordered);
                 if (data.noise != null) ($('#noiseSlider') as any).slider('setValue', data.noise);
                 if (data.diffusion != null) ($('#diffuseSlider') as any).slider('setValue', data.diffusion);
+                if (data.legacyDithering != null) (document.getElementById('legacyDitheringCheckbox') as HTMLInputElement).checked = data.legacyDithering;
                 // Restore error function
                 if (data.errorFunc) {
                     $('.error-func-btn').removeClass('active');
@@ -2195,6 +2199,10 @@ export function startUI() {
         if (currentExampleIndex < 0) currentExampleIndex = 0;
         loadSourceImage("images/" + filenameLoaded);
 
+        $("#legacyDitheringCheckbox").on('change', () => {
+            if (isAnimationMode) reprocessAnimation();
+            else resetImage();
+        });
         $("#diffuseSlider").on('change', () => {
             if (isAnimationMode) reprocessAnimation();
             else resetImage();
