@@ -822,6 +822,119 @@
             cursor: pointer;
         }
 
+        /* ── Dark mode ── */
+        body.dark-mode {
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        body.dark-mode .navbar {
+            background-color: #1e1e1e !important;
+            border-bottom: 1px solid #333;
+        }
+        body.dark-mode .navbar-brand {
+            color: #e0e0e0 !important;
+        }
+        body.dark-mode .navbar-divider {
+            background-color: #444;
+        }
+        body.dark-mode .page-footer {
+            background: rgba(18,18,18,0.97);
+            border-top-color: #333;
+            color: #888;
+        }
+        body.dark-mode .page-footer a {
+            color: #888;
+        }
+        body.dark-mode .page-footer a:hover {
+            color: #ccc;
+        }
+        body.dark-mode .footer-separator {
+            color: #555;
+        }
+        body.dark-mode .alert {
+            background-color: #1e1e1e;
+            border-color: #333;
+            color: #ccc;
+        }
+        body.dark-mode .alert-secondary {
+            background-color: #242424;
+            border-color: #383838;
+            color: #ccc;
+        }
+        body.dark-mode .image-container:not(.rendered-container),
+        body.dark-mode .rendered-container,
+        body.dark-mode .cropper-bg {
+            background-color: #2a2a2a;
+        }
+        body.dark-mode .animation-controls {
+            background-color: #242424;
+        }
+        body.dark-mode .animation-controls .frame-counter,
+        body.dark-mode .source-frame-counter,
+        body.dark-mode .processing-progress,
+        body.dark-mode .batch-progress {
+            color: #888;
+        }
+        body.dark-mode .system-name-display {
+            color: #ccc;
+        }
+        body.dark-mode .format-info {
+            color: #888;
+        }
+        body.dark-mode .btn-outline-secondary {
+            color: #aaa;
+            border-color: #555;
+        }
+        body.dark-mode .btn-outline-secondary:hover {
+            background-color: #333;
+            color: #ddd;
+            border-color: #666;
+        }
+        body.dark-mode .dropdown-menu {
+            background-color: #252525;
+            border-color: #444;
+        }
+        body.dark-mode .dropdown-item {
+            color: #ccc;
+        }
+        body.dark-mode .dropdown-item:hover {
+            background-color: #333;
+            color: #fff;
+        }
+        body.dark-mode .text-muted {
+            color: #777 !important;
+        }
+        body.dark-mode label,
+        body.dark-mode .col-form-label {
+            color: #ccc;
+        }
+        body.dark-mode .dither-method-label,
+        body.dark-mode .dither-classic-label {
+            color: #ccc;
+        }
+        body.dark-mode .palette-swatch-add {
+            border-color: #555;
+            color: #888;
+        }
+        body.dark-mode .palette-swatch-add:hover {
+            border-color: #007bff;
+            color: #007bff;
+        }
+        /* Dark mode toggle button */
+        #darkModeToggle {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 0.25rem;
+            padding: 0.15rem 0.45rem;
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            color: inherit;
+        }
+        body.dark-mode #darkModeToggle {
+            border-color: #555;
+        }
+
     </style>
 </head>
 <!-- body -->
@@ -859,6 +972,7 @@
                     title="Export settings to JSON"><i class="fa fa-download"></i> Export</button>
                 <button id="importSettingsBtn" type="button" class="btn btn-sm btn-outline-secondary"
                     title="Import settings from JSON"><i class="fa fa-upload"></i> Import</button>
+                <button id="darkModeToggle" title="Toggle light/dark mode">🌙</button>
                 <button id="systemSelectorToggle" type="button" class="btn btn-primary btn-sm" title="Select target format">
                     <span id="currentSystemName">Select System</span> <i class="fa fa-chevron-right"></i>
                 </button>
@@ -1118,6 +1232,25 @@
 
     <!-- local scripts-->
     <script src="gen/ui.js" type="module"></script>
+    <script>
+        (function() {
+            var btn = document.getElementById('darkModeToggle');
+            function applyTheme(dark) {
+                document.body.classList.toggle('dark-mode', dark);
+                btn.textContent = dark ? '☀️' : '🌙';
+                btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
+            }
+            var saved = localStorage.getItem('dithertron-dark-mode');
+            var prefersDark = saved !== null ? saved === 'true'
+                : window.matchMedia('(prefers-color-scheme: dark)').matches;
+            applyTheme(prefersDark);
+            btn.addEventListener('click', function() {
+                var isDark = document.body.classList.contains('dark-mode');
+                applyTheme(!isDark);
+                localStorage.setItem('dithertron-dark-mode', String(!isDark));
+            });
+        })();
+    </script>
 
 </body>
 </html>
