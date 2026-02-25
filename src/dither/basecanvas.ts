@@ -15,11 +15,15 @@ import {
 } from "../common/types";
 import { range, runtime_assert } from "../common/util";
 
-const THRESHOLD_MAP_4X4 = [
-    0, 8, 2, 10,
-    12, 4, 14, 6,
-    3, 11, 1, 9,
-    15, 7, 13, 5,
+const THRESHOLD_MAP_8X8 = [
+     0, 48, 12, 60,  3, 51, 15, 63,
+    32, 16, 44, 28, 35, 19, 47, 31,
+     8, 56,  4, 52, 11, 59,  7, 55,
+    40, 24, 36, 20, 43, 27, 39, 23,
+     2, 50, 14, 62,  1, 49, 13, 61,
+    34, 18, 46, 30, 33, 17, 45, 29,
+    10, 58,  6, 54,  9, 57,  5, 53,
+    42, 26, 38, 22, 41, 25, 37, 21,
 ];
 
 export class BaseDitheringCanvas {
@@ -80,9 +84,9 @@ export class BaseDitheringCanvas {
         // add cumulative error to pixel color, store into a clamped R,G, and B values (0-255) array
         var ko = 1;
         if (this.ordered > 0) {
-            let x = (offset % this.width) & 3;
-            let y = ((offset / this.width) | 0) & 3;
-            ko = 1 + (THRESHOLD_MAP_4X4[x + y * 4] / 15 - 0.5) * this.ordered;
+            let x = (offset % this.width) & 7;
+            let y = ((offset / this.width) | 0) & 7;
+            ko = 1 + (THRESHOLD_MAP_8X8[x + y * 8] / 63 - 0.5) * this.ordered;
         }
         this.tmp[0] = (rgbref & 0xff) * ko + this.err[errofs];
         this.tmp[1] = ((rgbref >> 8) & 0xff) * ko + this.err[errofs + 1];

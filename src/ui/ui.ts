@@ -769,6 +769,12 @@ function resetImage() {
     dithertron.settings.noise = parseFloat(noiseSlider.value);
     dithertron.settings.paletteDiversity = parseFloat(diversitySlider.value) / 100 + 0.5;
     dithertron.settings.legacyDithering = (document.getElementById('legacyDitheringCheckbox') as HTMLInputElement)?.checked || false;
+    dithertron.settings.pixelScale = currentPixelScale;
+
+    // Override width/height to match the actual scaled canvas dimensions
+    // so the dithering engine sees the correct pixel grid
+    dithertron.settings.width = destCanvas.width;
+    dithertron.settings.height = destCanvas.height;
 
     // Use locked/modified palette if available
     if ((paletteLocked || paletteModified) && currentPalette) {

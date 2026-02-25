@@ -100,6 +100,7 @@ export interface DithertronSettings {
     toNative?: string;
     exportFormat?: PixelEditorImageFormat;
     legacyDithering?: boolean;
+    pixelScale?: number;
 }
 
 export interface PixelsAvailableMessage {
