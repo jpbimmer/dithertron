@@ -51,6 +51,9 @@ var sourceGifPlayback = {
 
 // Pixel scale state
 var currentPixelScale = 1;
+// Native system settings (before any pixel-scale overrides) — used by convertImage()
+// to calculate expanded dimensions from the true native width/height
+var currentNativeSettings: DithertronSettings | null = null;
 
 var brightSlider = document.getElementById('brightSlider') as HTMLInputElement;
 var contrastSlider = document.getElementById('contrastSlider') as HTMLInputElement;
@@ -830,9 +833,11 @@ function convertImage() {
     // avoid "Failed to execute 'createImageBitmap' on 'Window': The crop rect height is 0."
     if (!cropCanvas?.width || !cropCanvas?.height) return;
 
-    // Calculate expanded dimensions based on source aspect ratio
+    // Calculate expanded dimensions based on source aspect ratio.
+    // Use currentNativeSettings (not dithertron.settings) so pixel-scale overrides
+    // stored by setSettings() don't corrupt the native width/height used here.
     const expandedDims = calculateExpandedDimensions(
-        dithertron.settings,
+        currentNativeSettings || dithertron.settings,
         { width: cropCanvas.width, height: cropCanvas.height }
     );
     currentExpandedDimensions = expandedDims;
@@ -1782,6 +1787,8 @@ function setTargetSystem(sys: DithertronSettings) {
     $('.pixel-scale-btn[data-scale="1"]').addClass('active');
     // Initialize mutable palette before setting up worker
     initializePaletteFromSystem(sys);
+    // Snapshot native settings before any pixel-scale overrides can corrupt them
+    currentNativeSettings = Object.assign({}, sys);
     // Reset expanded dimensions - will be recalculated in convertImage
     currentExpandedDimensions = null;
     dithertron.newWorker();
