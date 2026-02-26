@@ -771,17 +771,18 @@ function resetImage() {
     dithertron.settings.legacyDithering = (document.getElementById('legacyDitheringCheckbox') as HTMLInputElement)?.checked || false;
     dithertron.settings.pixelScale = currentPixelScale;
 
-    // Override width/height to match the actual scaled canvas dimensions
-    // so the dithering engine sees the correct pixel grid
-    dithertron.settings.width = destCanvas.width;
-    dithertron.settings.height = destCanvas.height;
-
     // Use locked/modified palette if available
     if ((paletteLocked || paletteModified) && currentPalette) {
         dithertron.settings.pal = currentPalette;
     }
 
-    dithertron.setSettings(dithertron.settings);
+    // Pass scaled canvas dimensions to the engine without mutating dithertron.settings,
+    // so convertImage() always sees the correct native width/height for aspect ratio math
+    const engineSettings = Object.assign({}, dithertron.settings, {
+        width: destCanvas.width,
+        height: destCanvas.height,
+    });
+    dithertron.setSettings(engineSettings);
     dithertron.restart();
 }
 
