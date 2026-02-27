@@ -1,0 +1,11 @@
+{
+    "id": "gb",
+    "name": "Game Boy",
+    "width": 160,
+    "height": 144,
+    "palette": ["#0F380F", "#306230", "#8CAC0F", "#ACCC0F"],
+    "diffuse": 0.8,
+    "kernel": "floyd",
+    "errfn": "perceptual",
+    "pixelScaleX": 1.111
+}

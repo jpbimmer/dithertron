@@ -1,0 +1,11 @@
+{
+    "id": "virtualboy",
+    "name": "Virtual Boy",
+    "width": 256,
+    "height": 256,
+    "palette": ["#000000", "#550000", "#AA0000", "#FF0000"],
+    "diffuse": 0.8,
+    "kernel": "floyd",
+    "errfn": "perceptual",
+    "pixelScaleX": 1.0
+}

@@ -1,0 +1,14 @@
+{
+    "id": "bbcmicro",
+    "name": "BBC Micro",
+    "width": 160,
+    "height": 256,
+    "palette": [
+        "#000000", "#FF0000", "#00FF00", "#FFFF00",
+        "#0000FF", "#FF00FF", "#00FFFF", "#FFFFFF"
+    ],
+    "diffuse": 0.8,
+    "kernel": "floyd",
+    "errfn": "perceptual",
+    "pixelScaleX": 2.0
+}

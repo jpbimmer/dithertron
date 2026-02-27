@@ -1,0 +1,16 @@
+{
+    "id": "apple2dblhires",
+    "name": "Apple II",
+    "width": 140,
+    "height": 192,
+    "palette": [
+        "#000000", "#E31E60", "#604EBD", "#FF44FD",
+        "#00A360", "#9C9C9C", "#14CFFD", "#D0C3FF",
+        "#607203", "#FF6A3C", "#9C9C9C", "#FFA0D0",
+        "#14F53C", "#D0DD8D", "#72FFD0", "#FFFFFF"
+    ],
+    "diffuse": 0.8,
+    "kernel": "floyd",
+    "errfn": "perceptual",
+    "pixelScaleX": 2.0
+}
